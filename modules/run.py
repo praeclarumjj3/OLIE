@@ -145,7 +145,7 @@ def train(model, num_epochs, dataloader):
         epoch_loss.append(avg_loss)
         
         if avg_loss < best_loss:
-            best_loss = running_loss
+            best_loss = avg_loss
             best_epoch = j+1
             print('Model saved at Epoch: {}'.format(j+1))
             torch.save(model.state_dict(),'checkpoints/editor.pth')

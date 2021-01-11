@@ -197,7 +197,7 @@ if __name__ == "__main__":
             epoch_loss.append(avg_loss)
         
         if avg_loss < best_loss and global_rank == 0:
-            best_loss = running_loss
+            best_loss = avg_loss
             best_epoch = j+1
             print('Model saved at Epoch: {}'.format(j+1))
             torch.save(editor.state_dict(),'checkpoints/editor.pth')
