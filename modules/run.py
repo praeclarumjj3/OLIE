@@ -104,16 +104,9 @@ def get_parser():
 
 
 def recons_loss(outputs, images):
-    total_loss = float(0)
     loss = nn.L1Loss()
-    edited_images = []
-
-    for j in range(outputs.shape[0]):
-        edited_images.append(outputs[j].squeeze(0))
-
-    for o,i in zip(edited_images, images):
-        total_loss += loss(i,o)
-    return total_loss
+    inputs = torch.stack(images,0).cuda()
+    return loss(inputs,outputs)
 
 
 def train(model, num_epochs, dataloader):
