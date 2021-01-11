@@ -33,7 +33,10 @@ class CocoDataset(data.Dataset):
         image = Image.open(os.path.join(self.root, path)).convert('RGB')
         
         image = self.transform(image)
-        return image.to(self.device)
+        if self.device is not None:
+            return image.to(self.device)
+        else:
+            return image
 
     def __len__(self):
         return len(self.ids)
@@ -54,8 +57,6 @@ def collate_fn(data):
     """
 
     images = data
-
-    # Merge images (from tuple of 3D tensor to 4D tensor).
     images = list(images)
 
     return images
@@ -82,4 +83,4 @@ def get_loader(device, root, json, batch_size, shuffle, num_workers):
                                               shuffle=shuffle,
                                               num_workers=num_workers,
                                               collate_fn=collate_fn)
-    return data_loader
+    return data_loader, coco

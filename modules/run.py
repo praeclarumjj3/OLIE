@@ -1,4 +1,5 @@
 # -*- coding: utf-8 -*-
+# -*- coding: utf-8 -*-
 from __future__ import print_function
 
 from torch._C import device
@@ -90,8 +91,14 @@ def get_parser():
     parser.add_argument(
         "--PATH",
         help="Path of the saved editor",
-        default='checkpoints.editor.pth',
+        default='checkpoints/editor.pth',
         type=str
+    )
+    parser.add_argument(
+        "--load",
+        help="To load pretrained weights for further training",
+        default=False,
+        type=bool
     )
     return parser
 
@@ -121,11 +128,11 @@ def train(model, num_epochs, dataloader):
     for j in range(num_epochs):
         running_loss = []
         total = len(dataloader)
-        bar = ProgressBar(total, max_width=60)
+        bar = ProgressBar(total, max_width=80)
         for i, data in tqdm(enumerate(dataloader, 0)):
-            bar.numerator = i
+            bar.numerator = i+1
             print(bar, end='\r')
-            # get the inputs; data is a list of [images]
+
             inputs = data
 
             # zero the parameter gradients
@@ -144,7 +151,7 @@ def train(model, num_epochs, dataloader):
         print("Epoch {}: Loss: {}".format(j+1,avg_loss))
         epoch_loss.append(avg_loss)
         
-        if running_loss < best_loss:
+        if avg_loss < best_loss:
             best_loss = running_loss
             best_epoch = j+1
             print('Model saved at Epoch: {}'.format(j+1))
@@ -153,24 +160,26 @@ def train(model, num_epochs, dataloader):
     plt.plot(np.linspace(1, num_epochs, num_epochs).astype(int), epoch_loss)
     plt.savefig('train_loss.png')
 
+
 def eval(model, dataloader):
     
     model.eval()
 
     running_loss = []
     total = len(dataloader)
-    bar = ProgressBar(total, max_width=60)
+    bar = ProgressBar(total, max_width=80)
     logger.info("Starting Evaluation")
-    for i, data in tqdm(enumerate(dataloader, 0)):
-        bar.numerator = i
-        print(bar, end='\r')
-        # get the inputs; data is a list of [images]
-        inputs = data
-        outputs = model(inputs)
-        loss = recons_loss(outputs, inputs)
-        
-        running_loss.append(loss.item())
-        sys.stdout.flush()
+    with torch.no_grad():
+        for i, data in tqdm(enumerate(dataloader, 0)):
+            bar.numerator = i+1
+            print(bar, end='\r')
+            
+            inputs = data
+            outputs = model(inputs)
+            loss = recons_loss(outputs, inputs)
+
+            running_loss.append(loss.item())
+            sys.stdout.flush()
         
     avg_loss = np.mean(running_loss)
     print("Eval Loss: {}".format(avg_loss))
@@ -181,7 +190,6 @@ def eval(model, dataloader):
 if __name__ == "__main__":
     if not os.path.exists('checkpoints/'):
         os.makedirs('checkpoints/')
-    mp.set_start_method("spawn", force=True)
     logger = setup_logger()
     args = get_parser().parse_args()
     logger.info("Arguments: " + str(args))
@@ -201,19 +209,19 @@ if __name__ == "__main__":
 
     reconstructor = Reconstructor(in_channels=r.shape[1])
     
-    coco_train_loader = get_loader(device=device, \
+    coco_train_loader, _ = get_loader(device=device, \
                                     root=args.coco+'train2017', \
                                         json=args.coco+'annotations/instances_train2017.json', \
                                             batch_size=args.batch_size, \
                                                 shuffle=True, \
-                                                    num_workers=8)
+                                                    num_workers=0)
 
-    coco_test_loader = get_loader(device=device, \
+    coco_test_loader, _ = get_loader(device=device, \
                                     root=args.coco+'val2017', \
                                         json=args.coco+'annotations/instances_val2017.json', \
                                             batch_size=args.batch_size, \
-                                                shuffle=False, \
-                                                    num_workers=8)
+                                                shuffle=True, \
+                                                    num_workers=0)
     
     if args.eval:
         editor_eval =Editor(solo,reconstructor)
@@ -222,8 +230,10 @@ if __name__ == "__main__":
     else:
         logger.info("Instantiating Editor")
         editor = Editor(solo,reconstructor)
-        train(model=editor.to(device),num_epochs=args.num_epochs, dataloader=coco_train_loader)
-    
+        if args.load:
+            editor.load_state_dict(torch.load(args.PATH))
+        train(model=editor.to(device),num_epochs=args.num_epochs, dataloader=coco_test_loader)
+
 #     total = len(coco_test_loader)
 #     bar = ProgressBar(total, max_width=60)
 #     for i, data in enumerate(coco_test_loader, 0):

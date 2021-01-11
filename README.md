@@ -82,6 +82,12 @@ The repository is structured as follows:
 sh train.sh
 ```
 
+- Run the following command to start distributed training of the **OLIE** model for `30 epochs`:
+
+```
+sh dist_train.sh
+```
+
 - Run the following command to evaluate the **OLIE** model from checkpoints:
 
 ```
