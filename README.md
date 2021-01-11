@@ -1,6 +1,6 @@
 # Object Level Image Editor (OLIE)
 
-[![License: 2-Clause BSD](https://img.shields.io/badge/License-MIT-blue.svg)](https://opensource.org/licenses/BSD-2-Clause)
+[![License](https://img.shields.io/badge/License-BSD%202--Clause-orange.svg)](https://opensource.org/licenses/BSD-2-Clause)
 [![Framework: PyTorch](https://img.shields.io/badge/Framework-PyTorch-orange.svg)](https://pytorch.org/)
 
 This code is derived from the [AdelaiDet Project](https://github.com/aim-uofa/AdelaiDet.git)
@@ -87,7 +87,3 @@ sh train.sh
 ```
 sh evaluate.sh
 ```
-
-## License
-
-For academic use, this project is licensed under the 2-clause BSD License - see the LICENSE file for details. For commercial use, please contact [Chunhua Shen](mailto:chhshen@gmail.com).
