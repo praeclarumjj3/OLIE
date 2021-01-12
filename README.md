@@ -10,6 +10,7 @@ This code is derived from the [AdelaiDet Project](https://github.com/aim-uofa/Ad
 2. [Setup Instructions](#2-setup-instructions)
 3. [Repository Overview](#3-repository-overview)
 4. [Reproduction](#4-reproduction)
+4. [Experiments](#5-experiments)
 
 ## 1. Overview
 
@@ -21,7 +22,7 @@ OLIE aims to reconstruct the original image with the objects removed (editing) b
 
 ## 2. Setup Instructions
 
-- First install Detectron2 following the official guide: [INSTALL.md](https://github.com/facebookresearch/detectron2/blob master/INSTALL.md).
+- First install Detectron2 following the official guide: [INSTALL.md](https://github.com/facebookresearch/detectron2/blob/master/INSTALL.md).
 *Please use Detectron2 with commit id [9eb4831](https://github.com/facebookresearch/detectron2/commit/9eb4831f742ae6a13b8edb61d07b619392fb6543) if you have any issues related to Detectron2.*
 
 - Then build the project with:
@@ -76,6 +77,12 @@ The repository is structured as follows:
 
 ## 4. Reproduction
 
+- Run the following command to run a demo and see visualization results:
+
+```
+sh demo.sh
+```
+
 - Run the following command to train the **OLIE** model for `30 epochs`:
 
 ```
@@ -93,3 +100,24 @@ sh dist_train.sh
 ```
 sh evaluate.sh
 ```
+
+## 5. Experiments
+
+The model was trained for `30 Epochs`. All experiments were conducted on the `coco-val dataset`. You can see the loss plots in the `losses` folder.
+
+| Phase | Loss |
+|-------|------|
+| Train | 8e-3 |
+| Eval  | 4e-3 |
+
+### Results
+
+- The reconstructions produced are very similar to the input images.
+    - **Left**: Original Input
+    - **Right**: Reconstruction
+
+<img src='visualizations/demo0.jpg' style="max-width:100%">
+
+<img src='visualizations/demo1.jpg' style="max-width:100%">
+
+<img src='visualizations/demo2.jpg' style="max-width:100%">
