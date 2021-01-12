@@ -116,24 +116,24 @@ class SOLOv2(nn.Module):
         
         mask_pred = self.mask_head(mask_features)
         results = self.inference(kernel_pred, mask_pred, batched_inputs)
-        return results, images
+        return results, torch.stack(batched_inputs,0)
         # x = mask_pred[0].cpu()
-        # x = x.permute(1, 2, 0).numpy()
-        # f, axarr = plt.subplots(16,16,figsize=(32,32))
-        # for j in range(x.shape[2]):
-        #     r = int(j/16)
-        #     c = j%16
-        #     axarr[r,c].imshow(x[:,:,j])
-        #     axarr[r,c].axis('off')
-        # f.savefig('visualizations/x_m.jpg')
-        # print(mask_pred.shape)
+#         x = x.permute(1, 2, 0).numpy()
+#         f, axarr = plt.subplots(16,16,figsize=(32,32))
+#         for j in range(x.shape[2]):
+#             r = int(j/16)
+#             c = j%16
+#             axarr[r,c].imshow(x[:,:,j])
+#             axarr[r,c].axis('off')
+#         f.savefig('visualizations/x_m.jpg')
+#         print(mask_pred.shape)
 
     def preprocess_image(self, batched_inputs):
         """
         Normalize, pad and batch the input images.
         """
         images = [x.to(self.device) for x in batched_inputs]
-        images = [self.normalizer(x) for x in images]
+#         images = [self.normalizer(x) for x in images]
         images = ImageList.from_tensors(images, self.backbone.size_divisibility)
         return images
 

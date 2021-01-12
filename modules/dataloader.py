@@ -2,7 +2,6 @@ import torch
 import torchvision.transforms as transforms
 import torch.utils.data as data
 import os
-import numpy as np
 from PIL import Image
 from pycocotools.coco import COCO
 
@@ -66,7 +65,7 @@ def get_loader(device, root, json, batch_size, shuffle, num_workers):
     # COCO caption dataset
     
     transform = transforms.Compose([
-        transforms.RandomSizedCrop(224),
+        transforms.CenterCrop(224),
         transforms.ToTensor(),
     ])
 
