@@ -25,12 +25,12 @@ class SOLOv2(nn.Module):
     def __init__(self, cfg):
         super().__init__()
 
-        # get the device of the model
         self.device = torch.device(cfg.MODEL.DEVICE)
 
         self.scale_ranges = cfg.MODEL.SOLOV2.FPN_SCALE_RANGES
         self.strides = cfg.MODEL.SOLOV2.FPN_INSTANCE_STRIDES
         self.sigma = cfg.MODEL.SOLOV2.SIGMA
+        
         # Instance parameters.
         self.num_classes = cfg.MODEL.SOLOV2.NUM_CLASSES
         self.num_kernels = cfg.MODEL.SOLOV2.NUM_KERNELS

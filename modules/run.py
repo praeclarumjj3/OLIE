@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-# -*- coding: utf-8 -*-
 from __future__ import print_function
 
 from torch._C import device
@@ -202,6 +201,12 @@ if __name__ == "__main__":
     
     reconstructor = Reconstructor(in_channels=r.shape[1])
 
+    recons_params = sum(p.numel() for p in reconstructor.parameters())
+    solo_params = sum(p.numel() for p in solo.parameters())
+
+    logger.info("Total Params: {}".format(recons_params+solo_params))
+    logger.info("Trainable Params: {}".format(recons_params))
+    logger.info("Non-Trainable Params: {}".format(solo_params))
     
 #     coco_train_loader, _ = get_loader(device=device, \
 #                                     root=args.coco+'train2017', \
@@ -229,13 +234,3 @@ if __name__ == "__main__":
         if args.load:
             editor.load_state_dict(torch.load(args.PATH))
         train(model=editor.to(device),num_epochs=args.num_epochs, dataloader=coco_test_loader)
-
-#     total = len(coco_test_loader)
-#     bar = ProgressBar(total, max_width=60)
-#     for i, data in enumerate(coco_test_loader, 0):
-#         bar.numerator = i
-#         print(bar, end='\r')
-#         # get the inputs; data is a list of [inputs, labels]
-#         inputs = data
-#         results=solo(inputs[:2])
-#         sys.stdout.flush()

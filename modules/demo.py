@@ -15,6 +15,7 @@ import time
 from PIL import Image
 import torchvision.transforms as transforms
 from detectron2.checkpoint import DetectionCheckpointer
+from detectron2.data.detection_utils import read_image
 
 
 warnings.filterwarnings("ignore")
@@ -66,17 +67,17 @@ def get_parser():
     return parser
 
 
-def recons_loss(outputs, images):
+def recons_loss(images, outputs):
     loss = nn.L1Loss()
-    inputs = torch.stack(images,0).cuda()
+    inputs =images.cuda()
     return loss(inputs,outputs)
 
 
 def demo(editor, args):
     
     transform = transforms.Compose([
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
+        transforms.CenterCrop(256),
+        transforms.Resize((256,256))
     ])
     
     if os.path.isdir(args.input[0]):
@@ -85,20 +86,22 @@ def demo(editor, args):
         args.input = glob.glob(os.path.expanduser(args.input[0]))
         assert args.input, "The input path(s) was not found"
     for i, path in enumerate(args.input):
-        img = Image.open(path).convert('RGB')
-        img = transform(img).cuda()
+        image = read_image(path, format="BGR")
+        img = torch.from_numpy(image.copy()).permute(2,0,1).float()
+        img = transform(img)
         f, (ax1,ax2) = plt.subplots(1,2)
-        org = img.cpu().permute(1,2,0).numpy()
+        org = img * torch.tensor(1./255)
+        org = org.cpu().permute(1,2,0).numpy()
         ax1.imshow(org)
         batched_input = []
         batched_input.append(img)
         logger.info("Starting Visualization")
         start_time = time.time()
         with torch.no_grad():
-            reconstruction = editor(batched_input).squeeze(0)
+            reconstruction = editor(batched_input)
         end_time = time.time()
         logger.info("Duration: {}".format(end_time-start_time))
-        reconstruction = reconstruction.cpu()
+        reconstruction = reconstruction.squeeze(0).cpu() * torch.tensor(1./255)
         reconstruction = reconstruction.permute(1, 2, 0).numpy()
         ax2.imshow(reconstruction)
         f.savefig('visualizations/demo{}.jpg'.format(i))
