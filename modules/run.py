@@ -12,18 +12,14 @@ from modules.solov2 import SOLOv2
 from modules.reconstructor import Reconstructor
 import matplotlib.pyplot as plt
 import argparse
-import multiprocessing as mp
 import os
 from tqdm import tqdm
 import numpy as np
 import warnings
 from detectron2.utils.logger import setup_logger
 from etaprogress.progress import ProgressBar
-import glob
-import time
-from PIL import Image
-import torchvision.transforms as transforms
-import cv2
+from detectron2.checkpoint import DetectionCheckpointer
+
 
 warnings.filterwarnings("ignore")
 
@@ -57,12 +53,6 @@ def get_parser():
         default="configs/R50_3x.yaml",
         metavar="FILE",
         help="path to config file",
-    )
-    parser.add_argument("--input", nargs="+", help="A list of space separated test images")
-    parser.add_argument(
-        "--output",
-        default="visualizations/",
-        help="A file or directory to save output visualizations.",
     )
     parser.add_argument(
         "--opts",
@@ -102,12 +92,6 @@ def get_parser():
     parser.add_argument(
         "--load",
         help="To load pretrained weights for further training",
-        default=False,
-        type=bool
-    )
-    parser.add_argument(
-        "--demo",
-        help="Produce a demo visualization",
         default=False,
         type=bool
     )
@@ -159,10 +143,12 @@ def train(model, num_epochs, dataloader):
             best_loss = avg_loss
             best_epoch = j+1
             print('Model saved at Epoch: {}'.format(j+1))
-            torch.save(model.state_dict(),'checkpoints/editor_normalized.pth')
+            torch.save(model.state_dict(),args.PATH)
     logger.info("Finished Training with best loss: {} at Epoch: {}".format(best_loss, best_epoch))
     plt.plot(np.linspace(1, num_epochs, num_epochs).astype(int), epoch_loss)
-    plt.savefig('train_loss.png')
+    if not os.path.exists('losses/'):
+            os.makedirs('losses/')
+    plt.savefig('losses/train_loss.png')
 
 
 def eval(model, dataloader):
@@ -189,38 +175,10 @@ def eval(model, dataloader):
     print("Eval Loss: {}".format(avg_loss))
         
     plt.plot(np.linspace(1, total, total).astype(int), running_loss)
-    plt.savefig('eval_loss.png')
+    if not os.path.exists('losses/'):
+            os.makedirs('losses/')
+    plt.savefig('losses/eval_loss.png')
 
-
-def demo(editor, args):
-    
-    transform = transforms.Compose([
-        transforms.CenterCrop(224),
-        transforms.ToTensor(),
-    ])
-    
-    if os.path.isdir(args.input[0]):
-        args.input = [os.path.join(args.input[0], fname) for fname in os.listdir(args.input[0])]
-    elif len(args.input) == 1:
-        args.input = glob.glob(os.path.expanduser(args.input[0]))
-        assert args.input, "The input path(s) was not found"
-    for i, path in enumerate(args.input):
-        img = Image.open(path).convert('RGB')
-#         plt.imshow(img)
-#         plt.savefig('visualizations/input{}.jpg'.format(i))
-        img = transform(img).cuda()
-        batched_input = []
-        batched_input.append(img)
-        logger.info("Starting Visualization")
-        start_time = time.time()
-        with torch.no_grad():
-            reconstruction = editor(batched_input).squeeze(0)
-        end_time = time.time()
-        logger.info("Duration: {}".format(end_time-start_time))
-        reconstruction = reconstruction.cpu()
-        reconstruction = reconstruction.permute(1, 2, 0).numpy()
-        plt.imshow(reconstruction)
-        plt.savefig('visualizations/demo{}.jpg'.format(i))
 
 if __name__ == "__main__":
     logger = setup_logger()
@@ -232,6 +190,8 @@ if __name__ == "__main__":
     cfg = setup_cfg(args)
 
     solo = SOLOv2(cfg=cfg).to(device)
+    checkpointer = DetectionCheckpointer(solo)
+    checkpointer.load(cfg.MODEL.WEIGHTS)
     for param in solo.parameters():
         param.requires_grad = False
     
@@ -242,15 +202,6 @@ if __name__ == "__main__":
     
     reconstructor = Reconstructor(in_channels=r.shape[1])
 
-    if args.demo:
-        if not os.path.exists('visualizations/'):
-            os.makedirs('visualizations/')
-            logger.info("Instantiating Editor")
-        editor_demo =Editor(solo,reconstructor)
-        editor_demo.load_state_dict(torch.load(args.PATH))
-        demo(editor=editor_demo.cuda(), args=args)
-        exit()
-        
     
 #     coco_train_loader, _ = get_loader(device=device, \
 #                                     root=args.coco+'train2017', \

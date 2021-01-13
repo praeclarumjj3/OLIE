@@ -2,9 +2,8 @@ import torch
 import torchvision.transforms as transforms
 import torch.utils.data as data
 import os
-from PIL import Image
 from pycocotools.coco import COCO
-
+from detectron2.data.detection_utils import read_image
 
 class CocoDataset(data.Dataset):
     """COCO Custom Dataset compatible with torch.utils.data.DataLoader."""
@@ -29,9 +28,10 @@ class CocoDataset(data.Dataset):
         img_id = coco.anns[ann_id]['image_id']
         path = coco.loadImgs(img_id)[0]['file_name']
 
-        image = Image.open(os.path.join(self.root, path)).convert('RGB')
-        
+        image = read_image(os.path.join(self.root, path), format="BGR")
+        image = torch.from_numpy(image.copy()).permute(2,0,1).float()
         image = self.transform(image)
+        # image = self.transform(image)
         if self.device is not None:
             return image.to(self.device)
         else:
@@ -66,7 +66,7 @@ def get_loader(device, root, json, batch_size, shuffle, num_workers):
     
     transform = transforms.Compose([
         transforms.CenterCrop(224),
-        transforms.ToTensor(),
+        transforms.Resize((224,224))
     ])
 
     coco = CocoDataset(device=device,

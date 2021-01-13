@@ -90,29 +90,8 @@ class SOLOv2(nn.Module):
         ins_features = self.split_feats(ins_features)
         kernel_pred = self.ins_head(ins_features)
 
-#         print('Categories')
-#         for f in cate_pred:
-#             print(f.shape)
-#         print('-----------------------')
-        
-#         print('Kernel')
-#         for f in kernel_pred:
-#             print(f.shape)
-#         print('-----------------------')
-
         # mask branch
         mask_features = [features[f] for f in self.mask_in_features]
-        # for i,feat in enumerate(self.mask_in_features):
-        #     x = features[feat][0].cpu()
-        #     x = x.permute(1, 2, 0).numpy()
-        #     f, axarr = plt.subplots(16,16,figsize=(32,32))
-        #     plt.subplots_adjust(left=0, bottom=0, right=0.01, top=0.01, wspace=0, hspace=0)
-        #     for j in range(x.shape[2]):
-        #         r = int(j/16)
-        #         c = j%16
-        #         axarr[r,c].imshow(x[:,:,j])
-        #         axarr[r,c].axis('off')
-        #     f.savefig('x{}.jpg'.format(i))
         
         mask_pred = self.mask_head(mask_features)
         results = self.inference(kernel_pred, mask_pred, batched_inputs)

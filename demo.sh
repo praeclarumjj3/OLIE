@@ -1,7 +1,6 @@
 #!/bin/sh
 
-python modules/run.py \
+python modules/demo.py \
     --config-file configs/R50_3x.yaml \
-    --input input1.jpg \
-    --demo True \
+    --input inputs/input1.jpg inputs/input2.jpg inputs/input3.jpeg\
     --opts MODEL.WEIGHTS SOLOv2_R50_3x.pth

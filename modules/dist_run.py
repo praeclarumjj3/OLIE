@@ -20,6 +20,7 @@ from etaprogress.progress import ProgressBar
 from torch.utils.data.distributed import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch import distributed as dist
+from detectron2.checkpoint import DetectionCheckpointer
 
 warnings.filterwarnings("ignore")
 
@@ -121,6 +122,8 @@ if __name__ == "__main__":
     cfg = setup_cfg(args)
 
     solo = SOLOv2(cfg=cfg)
+    checkpointer = DetectionCheckpointer(solo)
+    checkpointer.load(cfg.MODEL.WEIGHTS)
     for param in solo.parameters():
         param.requires_grad = False
     
