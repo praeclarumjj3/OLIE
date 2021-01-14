@@ -103,7 +103,9 @@ sh evaluate.sh
 
 ## 5. Experiments
 
-The model was trained for `30 Epochs`. All experiments were conducted on the `coco-val dataset`. You can see the loss plots in the `losses` folder.
+- The input image is of the `BGR` format.
+
+- The model was trained for `30 Epochs` with `lr=1e-3` and `L1 Loss`. All experiments were conducted on the `coco-val dataset`. You can see the loss plots in the `losses` folder.
 
 | Phase | Loss |
 |-------|------|
