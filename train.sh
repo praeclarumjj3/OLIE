@@ -1,6 +1,8 @@
 #!/bin/sh
 
-python modules/run.py \
+CUDA_VISIBLE_DEVICES=0 python modules/run.py \
     --config-file configs/R50_3x.yaml \
-    --PATH 'checkpoints/editor.pth' \
+    --lr 1e-3 \
+    --num_epochs 30 \
+    --PATH 'checkpoints/editor_concat.pth' \
     --opts MODEL.WEIGHTS SOLOv2_R50_3x.pth

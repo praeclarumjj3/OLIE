@@ -32,8 +32,9 @@ class Editor(nn.Module):
         self.reconstructor = reconstructor
 
     def forward(self, x):
-        results, images = self.solo(x)
-        output = self.reconstructor(results, images)
+        masks, images = self.solo(x)
+#         cut_masks = torch.cat([masks[:,:36,:,:],masks[:,36:72,:,:],masks[:,108:144,:,:]],dim=1)
+        output = self.reconstructor(masks, images)
         return output
 
 
@@ -77,6 +78,12 @@ def get_parser():
         type=int
     )
     parser.add_argument(
+        "--lr",
+        help="Learning Rate",
+        default=1e-3,
+        type=float
+    )
+    parser.add_argument(
         "--eval",
         help="To eval or not",
         default=False,
@@ -97,15 +104,23 @@ def get_parser():
     return parser
 
 
+def un_normalize(inputs):
+    pixel_mean = torch.Tensor(cfg.MODEL.PIXEL_MEAN).to(device).view(3, 1, 1)
+    pixel_std = torch.Tensor(cfg.MODEL.PIXEL_STD).to(device).view(3, 1, 1)
+    un_normalizer = lambda x: (x + pixel_mean) * pixel_std
+    return un_normalizer(inputs)
+
+
 def recons_loss(outputs, images):
     loss = nn.L1Loss()
     inputs = torch.stack(images,0).cuda()
-    return loss(inputs,outputs)
+    outputs = un_normalize(outputs)
+    return loss(inputs, outputs)
 
 
 def train(model, num_epochs, dataloader):
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=1e-1, betas=(0.9, 0.999), weight_decay=1e-2)
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=1e-2)
 
     best_loss = 1e10
     best_epoch = 0
@@ -147,7 +162,7 @@ def train(model, num_epochs, dataloader):
     plt.plot(np.linspace(1, num_epochs, num_epochs).astype(int), epoch_loss)
     if not os.path.exists('losses/'):
             os.makedirs('losses/')
-    plt.savefig('losses/train_loss.png')
+    plt.savefig('losses/train_loss_{}.png'.format(args.lr))
 
 
 def eval(model, dataloader):
@@ -176,7 +191,7 @@ def eval(model, dataloader):
     plt.plot(np.linspace(1, total, total).astype(int), running_loss)
     if not os.path.exists('losses/'):
             os.makedirs('losses/')
-    plt.savefig('losses/eval_loss.png')
+    plt.savefig('losses/eval_loss_{}.png'.format(args.lr))
 
 
 if __name__ == "__main__":

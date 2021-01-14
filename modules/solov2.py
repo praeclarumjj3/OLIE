@@ -81,7 +81,7 @@ class SOLOv2(nn.Module):
             losses (dict[str: Tensor]): mapping from a named loss to a tensor
                 storing the loss. Used during training only.
         """
-        images = self.preprocess_image(batched_inputs)
+        images, norms = self.preprocess_image(batched_inputs)
 
         features = self.backbone(images.tensor)
 
@@ -95,7 +95,7 @@ class SOLOv2(nn.Module):
         
         mask_pred = self.mask_head(mask_features)
         results = self.inference(kernel_pred, mask_pred, batched_inputs)
-        return results, torch.stack(batched_inputs,0)
+        return results, torch.stack(norms,0)
         # x = mask_pred[0].cpu()
 #         x = x.permute(1, 2, 0).numpy()
 #         f, axarr = plt.subplots(16,16,figsize=(32,32))
@@ -112,9 +112,9 @@ class SOLOv2(nn.Module):
         Normalize, pad and batch the input images.
         """
         images = [x.to(self.device) for x in batched_inputs]
-#         images = [self.normalizer(x) for x in images]
-        images = ImageList.from_tensors(images, self.backbone.size_divisibility)
-        return images
+        norms = [self.normalizer(x) for x in images]
+        images = ImageList.from_tensors(norms, self.backbone.size_divisibility)
+        return images, norms
 
 
     @staticmethod

@@ -74,6 +74,8 @@ def get_loader(device, root, json, batch_size, shuffle, num_workers):
                        json=json,
                        transform=transform)
     
+    coco= torch.utils.data.Subset(coco, list((range(0,int(len(coco)*0.02)))))
+    
     # Data loader for COCO dataset
     # This will return (images)
     # images: a tensor of shape (batch_size, 3, 224, 224).

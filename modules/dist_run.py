@@ -97,7 +97,7 @@ def get_parser():
 def recons_loss(outputs, images):
     loss = nn.L1Loss()
     inputs = torch.stack(images,0).cuda()
-    return loss(inputs,outputs)
+    return loss(inputs * torch.tensor(1./255),outputs)
 
 def reduce_loss(tensor, rank, world_size):
     with torch.no_grad():

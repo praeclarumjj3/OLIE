@@ -16,24 +16,10 @@ from PIL import Image
 import torchvision.transforms as transforms
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.data.detection_utils import read_image
+from run import Editor
 
 
 warnings.filterwarnings("ignore")
-
-class Editor(nn.Module):
-    
-    def __init__(self, solo, reconstructor):
-        super().__init__()
-
-        # get the device of the model
-        self.solo = solo
-        self.reconstructor = reconstructor
-
-    def forward(self, x):
-        results, images = self.solo(x)
-        output = self.reconstructor(results, images)
-        return output
-
 
 def setup_cfg(args):
     # load config from file and command-line arguments
@@ -67,10 +53,18 @@ def get_parser():
     return parser
 
 
-def recons_loss(images, outputs):
+def un_normalize(inputs):
+    pixel_mean = torch.Tensor(cfg.MODEL.PIXEL_MEAN).to(device).view(3, 1, 1)
+    pixel_std = torch.Tensor(cfg.MODEL.PIXEL_STD).to(device).view(3, 1, 1)
+    un_normalizer = lambda x: (x + pixel_mean) * pixel_std
+    return un_normalizer(inputs)
+
+
+def recons_loss(outputs, images):
     loss = nn.L1Loss()
-    inputs =images.cuda()
-    return loss(inputs,outputs)
+    inputs = torch.stack(images,0).cuda()
+    outputs = un_normalize(outputs)
+    return loss(inputs ,outputs)
 
 
 def demo(editor, args):
@@ -92,6 +86,7 @@ def demo(editor, args):
         f, (ax1,ax2) = plt.subplots(1,2)
         org = img * torch.tensor(1./255)
         org = org.cpu().permute(1,2,0).numpy()
+        org = org[:,:,::-1]
         ax1.imshow(org)
         batched_input = []
         batched_input.append(img)
@@ -101,8 +96,9 @@ def demo(editor, args):
             reconstruction = editor(batched_input)
         end_time = time.time()
         logger.info("Duration: {}".format(end_time-start_time))
-        reconstruction = reconstruction.squeeze(0).cpu() * torch.tensor(1./255)
+        reconstruction = torch.clamp(torch.round(reconstruction.squeeze(0).cpu()),min=0., max = 255.) * torch.tensor(1./255)
         reconstruction = reconstruction.permute(1, 2, 0).numpy()
+        reconstruction = reconstruction[:,:,::-1]
         ax2.imshow(reconstruction)
         f.savefig('visualizations/demo{}.jpg'.format(i))
 
