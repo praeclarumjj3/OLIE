@@ -53,20 +53,6 @@ def get_parser():
     return parser
 
 
-def un_normalize(inputs):
-    pixel_mean = torch.Tensor(cfg.MODEL.PIXEL_MEAN).to(device).view(3, 1, 1)
-    pixel_std = torch.Tensor(cfg.MODEL.PIXEL_STD).to(device).view(3, 1, 1)
-    un_normalizer = lambda x: (x + pixel_mean) * pixel_std
-    return un_normalizer(inputs)
-
-
-def recons_loss(outputs, images):
-    loss = nn.L1Loss()
-    inputs = torch.stack(images,0).cuda()
-    outputs = un_normalize(outputs)
-    return loss(inputs ,outputs)
-
-
 def demo(editor, args):
     
     transform = transforms.Compose([

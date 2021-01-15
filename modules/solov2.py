@@ -84,7 +84,10 @@ class SOLOv2(nn.Module):
         images, norms = self.preprocess_image(batched_inputs)
 
         features = self.backbone(images.tensor)
-
+        
+#         print(features['p2'])
+#         exit()
+    
         # ins branch
         ins_features = [features[f] for f in self.instance_in_features]
         ins_features = self.split_feats(ins_features)
@@ -95,17 +98,18 @@ class SOLOv2(nn.Module):
         
         mask_pred = self.mask_head(mask_features)
         results = self.inference(kernel_pred, mask_pred, batched_inputs)
-        return results, torch.stack(norms,0)
-        # x = mask_pred[0].cpu()
+#         x = results[0].cpu() 
 #         x = x.permute(1, 2, 0).numpy()
-#         f, axarr = plt.subplots(16,16,figsize=(32,32))
+#         f, axarr = plt.subplots(12,12,figsize=(16,16))
 #         for j in range(x.shape[2]):
-#             r = int(j/16)
-#             c = j%16
+#             r = int(j/12)
+#             c = j%12
 #             axarr[r,c].imshow(x[:,:,j])
 #             axarr[r,c].axis('off')
 #         f.savefig('visualizations/x_m.jpg')
-#         print(mask_pred.shape)
+#         print(results[0])
+#         exit()
+        return results, features['p2']
 
     def preprocess_image(self, batched_inputs):
         """

@@ -110,12 +110,51 @@ def un_normalize(inputs):
     un_normalizer = lambda x: (x + pixel_mean) * pixel_std
     return un_normalizer(inputs)
 
+def get_features(image, model, layers=None):
+    if layers is None:
+        layers = {'0': 'conv1_1','5': 'conv2_1',
+                  '10': 'conv3_1',
+                  '19': 'conv4_1',
+                  '21': 'conv4_2',  ## content layer
+                  '28': 'conv5_1'}
+    features = {}
+    x = image
+    for name, layer in enumerate(model.features):
+      x = layer(x)
+      if str(name) in layers:
+        features[layers[str(name)]] = x
+    
+    return features
+
+
+def gram_matrix(inputs):
+    grams = []
+    for i in range(inputs.shape[0]):
+        tensor = inputs[i]
+        n_filters, h, w = tensor.size()
+        tensor = tensor.view(n_filters, h * w)
+        grams.append(torch.mm(tensor, tensor.t()))
+  
+    return torch.stack(grams,0)
+
+
+def s_loss(inputs, outputs):
+
+    in_gram = gram_matrix(inputs)
+    out_gram = gram_matrix(outputs)
+    loss = nn.MSELoss()
+    style_loss = loss(out_gram, in_gram)
+    return style_loss
+
 
 def recons_loss(outputs, images):
     loss = nn.L1Loss()
     inputs = torch.stack(images,0).cuda()
     outputs = un_normalize(outputs)
-    return loss(inputs, outputs)
+    content_loss =  loss(inputs, outputs)
+    style_loss = s_loss(inputs, outputs)
+
+    return content_loss + style_loss
 
 
 def train(model, num_epochs, dataloader):
@@ -223,12 +262,12 @@ if __name__ == "__main__":
     logger.info("Trainable Params: {}".format(recons_params))
     logger.info("Non-Trainable Params: {}".format(solo_params))
     
-#     coco_train_loader, _ = get_loader(device=device, \
-#                                     root=args.coco+'train2017', \
-#                                         json=args.coco+'annotations/instances_train2017.json', \
-#                                             batch_size=args.batch_size, \
-#                                                 shuffle=True, \
-#                                                     num_workers=0)
+    coco_train_loader, _ = get_loader(device=device, \
+                                    root=args.coco+'train2017', \
+                                        json=args.coco+'annotations/instances_train2017.json', \
+                                            batch_size=args.batch_size, \
+                                                shuffle=True, \
+                                                    num_workers=0)
 
     coco_test_loader, _ = get_loader(device=device, \
                                     root=args.coco+'val2017', \
@@ -248,4 +287,4 @@ if __name__ == "__main__":
         editor = Editor(solo,reconstructor)
         if args.load:
             editor.load_state_dict(torch.load(args.PATH))
-        train(model=editor.to(device),num_epochs=args.num_epochs, dataloader=coco_test_loader)
+        train(model=editor.to(device),num_epochs=args.num_epochs, dataloader=coco_train_loader)
