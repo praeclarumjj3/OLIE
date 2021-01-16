@@ -107,6 +107,7 @@ def get_parser():
 def un_normalize(inputs):
     pixel_mean = torch.Tensor(cfg.MODEL.PIXEL_MEAN).to(device).view(3, 1, 1)
     pixel_std = torch.Tensor(cfg.MODEL.PIXEL_STD).to(device).view(3, 1, 1)
+    [57.375, 57.120, 58.395]
     un_normalizer = lambda x: (x + pixel_mean) * pixel_std
     return un_normalizer(inputs)
 
@@ -152,9 +153,9 @@ def recons_loss(outputs, images):
     inputs = torch.stack(images,0).cuda()
     outputs = un_normalize(outputs)
     content_loss =  loss(inputs, outputs)
-    style_loss = s_loss(inputs, outputs)
+    # style_loss = s_loss(inputs, outputs)
 
-    return content_loss + style_loss
+    return content_loss
 
 
 def train(model, num_epochs, dataloader):

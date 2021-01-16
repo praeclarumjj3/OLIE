@@ -16,6 +16,11 @@ def masking(image, phase, index):
     
     return image*overlap
 
+def normalize(inputs):
+    # pixel_mean = torch.Tensor([103.530, 116.280, 123.675]).cuda().view(3, 1, 1)
+    pixel_std = torch.Tensor([57.375, 57.120, 58.395]).view(3, 1, 1)
+    normalizer = lambda x: (x) / pixel_std
+    return normalizer(inputs)
 
 class Reconstructor(nn.Module):
 
@@ -26,7 +31,10 @@ class Reconstructor(nn.Module):
         self.decoder = Decoder()
 
     def forward(self, masks, images):
+        images = normalize(images)
         images = F.interpolate(images,(64,64))
+        masks = F.sigmoid(masks)
+        masks = torch.ones_like(masks) - masks
         masks = torch.cat([masks,images], dim=1)
         x = self.encoder(masks)
         x = self.decoder(x)
@@ -37,7 +45,7 @@ class Reconstructor(nn.Module):
 class Encoder(nn.Module):
     def __init__(self, in_channels):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels+256, 512, kernel_size=3, stride=1, padding=1)
+        self.conv1 = nn.Conv2d(in_channels+3, 512, kernel_size=3, stride=1, padding=1)
         self.conv2 = nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1)
         self.pool = nn.MaxPool2d(2, stride=2)
         self.conv3 = nn.Conv2d(512, 1024, kernel_size=1, stride=1)
