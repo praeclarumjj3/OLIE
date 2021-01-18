@@ -65,7 +65,6 @@ def get_loader(device, root, json, batch_size, shuffle, num_workers):
     # COCO caption dataset
     
     transform = transforms.Compose([
-        transforms.CenterCrop(256),
         transforms.Resize((256,256))
     ])
 
