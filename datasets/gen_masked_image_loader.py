@@ -48,7 +48,7 @@ class CocoDataset(data.Dataset):
         # ax1.imshow(org)
         # image = torch.from_numpy(np.asarray(org).copy()).permute(2,0,1).float()
         hole_image = torch.from_numpy(np.asarray(org).copy()).permute(2,0,1).float()
-        mask = torch.zeros_like(image)
+        mask = torch.zeros_like(hole_image)
         for b_box in b_boxes:
             hole_image[:,b_box[1]:b_box[1]+b_box[3],b_box[0]:b_box[0]+b_box[2]] = torch.tensor(255.)
             mask[:,b_box[1]:b_box[1]+b_box[3],b_box[0]:b_box[0]+b_box[2]] = torch.tensor(255.)
