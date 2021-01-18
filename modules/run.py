@@ -107,7 +107,6 @@ def get_parser():
 def un_normalize(inputs):
     pixel_mean = torch.Tensor(cfg.MODEL.PIXEL_MEAN).to(device).view(3, 1, 1)
     pixel_std = torch.Tensor(cfg.MODEL.PIXEL_STD).to(device).view(3, 1, 1)
-    [57.375, 57.120, 58.395]
     un_normalizer = lambda x: (x + pixel_mean) * pixel_std
     return un_normalizer(inputs)
 
@@ -148,12 +147,17 @@ def s_loss(inputs, outputs):
     return style_loss
 
 
-def recons_loss(outputs, images):
+def recons_loss(outputs, images, b_boxes):
     loss = nn.L1Loss()
     inputs = torch.stack(images,0).cuda()
     outputs = un_normalize(outputs)
+
+    for i, b_box in enumerate(b_boxes):
+        for b in b_box:
+            outputs[i, :,b[1]:b[1]+b[3],b[0]:b[0]+b[2]] = torch.tensor(0.)
+            inputs[i, :,b[1]:b[1]+b[3],b[0]:b[0]+b[2]] = torch.tensor(0.)
+
     content_loss =  loss(inputs, outputs)
-    # style_loss = s_loss(inputs, outputs)
 
     return content_loss
 
@@ -175,14 +179,14 @@ def train(model, num_epochs, dataloader):
             bar.numerator = i+1
             print(bar, end='\r')
 
-            inputs = data
+            inputs, b_boxes = data
 
             # zero the parameter gradients
             optimizer.zero_grad()
 
             # forward + backward + optimize
             outputs = model(inputs)
-            loss = recons_loss(outputs, inputs)
+            loss = recons_loss(outputs, inputs, b_boxes)
             loss.backward()
             optimizer.step()
 
@@ -263,21 +267,13 @@ if __name__ == "__main__":
     logger.info("Trainable Params: {}".format(recons_params))
     logger.info("Non-Trainable Params: {}".format(solo_params))
     
-    coco_train_loader, _ = get_loader(device=device, \
-                                    root=args.coco+'train2017', \
-                                        json=args.coco+'annotations/instances_train2017.json', \
-                                            batch_size=args.batch_size, \
-                                                shuffle=True, \
-                                                    num_workers=0)
-
-    coco_test_loader, _ = get_loader(device=device, \
+    if args.eval:
+        coco_test_loader, _ = get_loader(device=device, \
                                     root=args.coco+'val2017', \
                                         json=args.coco+'annotations/instances_val2017.json', \
                                             batch_size=args.batch_size, \
-                                                shuffle=True, \
+                                                shuffle=False, \
                                                     num_workers=0)
-    
-    if args.eval:
         editor_eval =Editor(solo,reconstructor)
         editor_eval.load_state_dict(torch.load(args.PATH))
         eval(editor_eval.to(device),coco_test_loader)
@@ -288,4 +284,10 @@ if __name__ == "__main__":
         editor = Editor(solo,reconstructor)
         if args.load:
             editor.load_state_dict(torch.load(args.PATH))
+        coco_train_loader, _ = get_loader(device=device, \
+                                    root=args.coco+'train2017', \
+                                        json=args.coco+'annotations/instances_train2017.json', \
+                                            batch_size=args.batch_size, \
+                                                shuffle=True, \
+                                                    num_workers=0)
         train(model=editor.to(device),num_epochs=args.num_epochs, dataloader=coco_train_loader)

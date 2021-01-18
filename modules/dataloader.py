@@ -17,25 +17,37 @@ class CocoDataset(data.Dataset):
         """
         self.root = root
         self.coco = COCO(json)
-        self.ids = list(self.coco.anns.keys())
+        self.ids = list(self.coco.imgs.keys())
         self.transform = transform
         self.device = device
 
     def __getitem__(self, index):
         """Returns one image."""
         coco = self.coco
-        ann_id = self.ids[index]
-        img_id = coco.anns[ann_id]['image_id']
+        img_id = self.ids[index]
         path = coco.loadImgs(img_id)[0]['file_name']
+        ann_ids = []
+
+        for ann in self.coco.anns.keys():
+            if coco.anns[ann]['image_id'] == img_id:
+                ann_ids.append(ann)
+        
+        b_boxes = []
+        for ann_id in ann_ids:
+            b_boxes.append(coco.anns[ann_id]['bbox'])
+        
+        for i in range(len(b_boxes)):
+            for j in range(len(b_boxes[i])):
+                b_boxes[i][j] = round(b_boxes[i][j])
 
         image = read_image(os.path.join(self.root, path), format="BGR")
         image = torch.from_numpy(image.copy()).permute(2,0,1).float()
         image = self.transform(image)
         # image = self.transform(image)
         if self.device is not None:
-            return image.to(self.device)
+            return image.to(self.device), b_boxes
         else:
-            return image
+            return image, b_boxes
 
     def __len__(self):
         return len(self.ids)
@@ -55,10 +67,11 @@ def collate_fn(data):
         
     """
 
-    images = data
+    images, b_boxes = zip(*data)
     images = list(images)
+    b_boxes = list(b_boxes)
 
-    return images
+    return images, b_boxes
 
 def get_loader(device, root, json, batch_size, shuffle, num_workers):
     """Returns torch.utils.data.DataLoader for custom coco dataset."""
@@ -73,7 +86,7 @@ def get_loader(device, root, json, batch_size, shuffle, num_workers):
                        json=json,
                        transform=transform)
     
-    coco= torch.utils.data.Subset(coco, list((range(0,int(len(coco)*0.02)))))
+    coco= torch.utils.data.Subset(coco, list((range(0,int(len(coco)*0.05)))))
     
     # Data loader for COCO dataset
     # This will return (images)

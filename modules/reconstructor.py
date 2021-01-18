@@ -18,7 +18,7 @@ def masking(image, phase, index):
 
 def normalize(inputs):
     # pixel_mean = torch.Tensor([103.530, 116.280, 123.675]).cuda().view(3, 1, 1)
-    pixel_std = torch.Tensor([57.375, 57.120, 58.395]).view(3, 1, 1)
+    pixel_std = torch.Tensor([57.375, 57.120, 58.395]).view(3, 1, 1).cuda()
     normalizer = lambda x: (x) / pixel_std
     return normalizer(inputs)
 
