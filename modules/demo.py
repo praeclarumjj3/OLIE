@@ -52,12 +52,17 @@ def get_parser():
     )
     return parser
 
+def un_normalize(inputs):
+    pixel_mean = torch.Tensor([123.675, 116.280, 103.530]).to(device).view(3, 1, 1)
+    pixel_std = torch.Tensor([1.0, 1.0, 1.0]).to(device).view(3, 1, 1)
+    un_normalizer = lambda x: (x + pixel_mean) * pixel_std
+    return un_normalizer(inputs)
 
 def demo(editor, args):
     
     transform = transforms.Compose([
-        transforms.CenterCrop(256),
-        transforms.Resize((256,256))
+        transforms.CenterCrop(640),
+        transforms.Resize((640,640))
     ])
     
     if os.path.isdir(args.input[0]):
@@ -82,6 +87,7 @@ def demo(editor, args):
             reconstruction = editor(batched_input)
         end_time = time.time()
         logger.info("Duration: {}".format(end_time-start_time))
+        reconstruction = un_normalize(reconstruction)
         reconstruction = torch.clamp(torch.round(reconstruction.squeeze(0).cpu()),min=0., max = 255.) * torch.tensor(1./255)
         reconstruction = reconstruction.permute(1, 2, 0).numpy()
         reconstruction = reconstruction[:,:,::-1]

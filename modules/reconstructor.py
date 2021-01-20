@@ -32,7 +32,8 @@ class Reconstructor(nn.Module):
 
     def forward(self, masks, images):
         images = normalize(images)
-        images = F.interpolate(images,(64,64))
+        size = masks.shape[2]
+        images = F.interpolate(images,(size,size))
         masks = F.sigmoid(masks)
         masks = torch.ones_like(masks) - masks
         masks = torch.cat([masks,images], dim=1)
@@ -45,31 +46,25 @@ class Reconstructor(nn.Module):
 class Encoder(nn.Module):
     def __init__(self, in_channels):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels+3, 512, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1)
-        self.pool = nn.MaxPool2d(2, stride=2)
-        self.conv3 = nn.Conv2d(512, 1024, kernel_size=1, stride=1)
+        self.conv1 = nn.Conv2d(in_channels+3, 256, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1)
         
     def forward(self, x):
         x = self.conv1(x)
         x = self.conv2(x)
-        x = self.pool(x)
-        x = self.conv3(x)
         return x
         
 
 class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
-        self.conv1_1 = nn.Conv2d(1024, 512, kernel_size=3, stride=1, padding=1)
-        self.conv1_2 = nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1)
-        self.conv1_3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
+        self.conv1_1 = nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1)
+        self.conv1_2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
         
         # dilated convolution blocks
         self.convA2_1 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=2, dilation=2)
         self.convA2_2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=4, dilation=4)
         self.convA2_3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=8, dilation=8)
-        self.convA2_4 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=16, dilation=16)
 
         self.conv3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
         self.conv4 = nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=1) 
@@ -82,13 +77,10 @@ class Decoder(nn.Module):
     def forward(self, x):
         x = self.conv1_1(x)
         x = self.conv1_2(x)
-        x = self.conv1_3(x)
-        x = F.upsample(x, scale_factor=2, mode='nearest')
 
         x = self.convA2_1(x)
         x = self.convA2_2(x)
         x = self.convA2_3(x)
-        x = self.convA2_4(x)
 
         x = self.conv3(x)
         x = self.conv4(x)

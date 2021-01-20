@@ -33,7 +33,6 @@ class Editor(nn.Module):
 
     def forward(self, x):
         masks, images = self.solo(x)
-#         cut_masks = torch.cat([masks[:,:36,:,:],masks[:,36:72,:,:],masks[:,108:144,:,:]],dim=1)
         output = self.reconstructor(masks, images)
         return output
 
@@ -68,7 +67,7 @@ def get_parser():
     parser.add_argument(
         "--batch_size",
         help="Batch Size for dataloaders",
-        default=16,
+        default=8,
         type=int
     )
     parser.add_argument(
@@ -110,22 +109,6 @@ def un_normalize(inputs):
     un_normalizer = lambda x: (x + pixel_mean) * pixel_std
     return un_normalizer(inputs)
 
-def get_features(image, model, layers=None):
-    if layers is None:
-        layers = {'0': 'conv1_1','5': 'conv2_1',
-                  '10': 'conv3_1',
-                  '19': 'conv4_1',
-                  '21': 'conv4_2',  ## content layer
-                  '28': 'conv5_1'}
-    features = {}
-    x = image
-    for name, layer in enumerate(model.features):
-      x = layer(x)
-      if str(name) in layers:
-        features[layers[str(name)]] = x
-    
-    return features
-
 
 def gram_matrix(inputs):
     grams = []
@@ -152,10 +135,10 @@ def recons_loss(outputs, images, b_boxes):
     inputs = torch.stack(images,0).cuda()
     outputs = un_normalize(outputs)
 
-    for i, b_box in enumerate(b_boxes):
-        for b in b_box:
-            outputs[i, :,b[1]:b[1]+b[3],b[0]:b[0]+b[2]] = torch.tensor(0.)
-            inputs[i, :,b[1]:b[1]+b[3],b[0]:b[0]+b[2]] = torch.tensor(0.)
+#     for i, b_box in enumerate(b_boxes):
+#         for b in b_box:
+#             outputs[i, :,b[1]:b[1]+b[3],b[0]:b[0]+b[2]] = torch.tensor(0.)
+#             inputs[i, :,b[1]:b[1]+b[3],b[0]:b[0]+b[2]] = torch.tensor(0.)
 
     content_loss =  loss(inputs, outputs)
 
@@ -179,14 +162,14 @@ def train(model, num_epochs, dataloader):
             bar.numerator = i+1
             print(bar, end='\r')
 
-            inputs, b_boxes = data
+            inputs, b_boxes, inpainted_images = data
 
             # zero the parameter gradients
             optimizer.zero_grad()
 
             # forward + backward + optimize
             outputs = model(inputs)
-            loss = recons_loss(outputs, inputs, b_boxes)
+            loss = recons_loss(outputs, inpainted_images, b_boxes)
             loss.backward()
             optimizer.step()
 
@@ -288,6 +271,6 @@ if __name__ == "__main__":
                                     root=args.coco+'train2017', \
                                         json=args.coco+'annotations/instances_train2017.json', \
                                             batch_size=args.batch_size, \
-                                                shuffle=True, \
+                                                shuffle=False, \
                                                     num_workers=0)
         train(model=editor.to(device),num_epochs=args.num_epochs, dataloader=coco_train_loader)

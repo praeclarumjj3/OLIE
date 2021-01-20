@@ -16,6 +16,7 @@ class CocoDataset(data.Dataset):
             transform: image transformer.
         """
         self.root = root
+        self.inpainted = 'datasets/coco/inpainted_train'
         self.coco = COCO(json)
         self.ids = list(self.coco.imgs.keys())
         self.transform = transform
@@ -35,19 +36,31 @@ class CocoDataset(data.Dataset):
         b_boxes = []
         for ann_id in ann_ids:
             b_boxes.append(coco.anns[ann_id]['bbox'])
-        
-        for i in range(len(b_boxes)):
-            for j in range(len(b_boxes[i])):
-                b_boxes[i][j] = round(b_boxes[i][j])
 
         image = read_image(os.path.join(self.root, path), format="BGR")
         image = torch.from_numpy(image.copy()).permute(2,0,1).float()
+        inpainted_image = read_image(os.path.join(self.root, path), format="BGR")
+        inpainted_image = torch.from_numpy(inpainted_image.copy()).permute(2,0,1).float()
+        x_ = image.shape[2]
+        y_ = image.shape[1]
+
         image = self.transform(image)
-        # image = self.transform(image)
+        inpainted_image = self.transform(inpainted_image)
+
+        x_scale = image.shape[2]/x_
+        y_scale = image.shape[1]/y_
+
+        for i in range(len(b_boxes)):
+            for j in range(len(b_boxes[i])):
+                if j == 0 or j == 2:
+                    b_boxes[i][j] = round(b_boxes[i][j]*x_scale)
+                else:
+                    b_boxes[i][j] = round(b_boxes[i][j]*y_scale)
+
         if self.device is not None:
-            return image.to(self.device), b_boxes
+            return image.to(self.device), b_boxes, inpainted_image.to(self.device)
         else:
-            return image, b_boxes
+            return image, b_boxes, inpainted_image
 
     def __len__(self):
         return len(self.ids)
@@ -67,18 +80,19 @@ def collate_fn(data):
         
     """
 
-    images, b_boxes = zip(*data)
+    images, b_boxes, inpainted_images = zip(*data)
     images = list(images)
     b_boxes = list(b_boxes)
+    inpainted_images = list(inpainted_images)
 
-    return images, b_boxes
+    return images, b_boxes, inpainted_images
 
 def get_loader(device, root, json, batch_size, shuffle, num_workers):
     """Returns torch.utils.data.DataLoader for custom coco dataset."""
     # COCO caption dataset
     
     transform = transforms.Compose([
-        transforms.Resize((256,256))
+        transforms.Resize((640,640))
     ])
 
     coco = CocoDataset(device=device,
@@ -86,7 +100,7 @@ def get_loader(device, root, json, batch_size, shuffle, num_workers):
                        json=json,
                        transform=transform)
     
-    coco= torch.utils.data.Subset(coco, list((range(0,int(len(coco)*0.05)))))
+    coco= torch.utils.data.Subset(coco, list((range(0,int(len(coco)*0.01)))))
     
     # Data loader for COCO dataset
     # This will return (images)
