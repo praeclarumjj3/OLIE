@@ -105,12 +105,12 @@ sh evaluate.sh
 
 - The input image is of the `BGR` format.
 
-- The model was trained for `30 Epochs` with `lr=1e-3` and `L1 Loss`. All experiments were conducted on the `coco-val dataset`. You can see the loss plots in the `losses` folder.
+- The model was trained for `30 Epochs` with `lr=1e-3`. All experiments were conducted on the `coco-val dataset`. You can see the loss plots in the `losses` folder.
 
-| Phase | Loss |
-|-------|------|
-| Train | 8e-3 |
-| Eval  | 4e-3 |
+|     Phase   | Loss |
+|-------------|------|
+| Training    | ---- |
+| Evaluation  | ---- |
 
 ### Results
 

@@ -43,11 +43,8 @@ class CocoDataset(data.Dataset):
             for j in range(len(b_boxes[i])):
                 b_boxes[i][j] = round(b_boxes[i][j])
 
-        org = Image.open(os.path.join(self.root, path)).convert('RGB')
-        # f, (ax1,ax2,ax3) = plt.subplots(1,3)
-        # ax1.imshow(org)
-        # image = torch.from_numpy(np.asarray(org).copy()).permute(2,0,1).float()
-        hole_image = torch.from_numpy(np.asarray(org).copy()).permute(2,0,1).float()
+        org = read_image(os.path.join(self.root, path), format="BGR")
+        hole_image = torch.from_numpy(image.copy()).permute(2,0,1).float()
         mask = torch.zeros_like(hole_image)
         for b_box in b_boxes:
             hole_image[:,b_box[1]:b_box[1]+b_box[3],b_box[0]:b_box[0]+b_box[2]] = torch.tensor(255.)

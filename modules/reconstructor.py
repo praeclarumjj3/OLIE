@@ -51,7 +51,10 @@ class Encoder(nn.Module):
         
     def forward(self, x):
         x = self.conv1(x)
+        x = F.relu(x)
         x = self.conv2(x)
+        x = F.relu(x)
+        
         return x
         
 
@@ -76,19 +79,30 @@ class Decoder(nn.Module):
     
     def forward(self, x):
         x = self.conv1_1(x)
+        x = F.relu(x)
         x = self.conv1_2(x)
+        x = F.relu(x)
 
         x = self.convA2_1(x)
+        x = F.relu(x)
         x = self.convA2_2(x)
+        x = F.relu(x)
         x = self.convA2_3(x)
+        x = F.relu(x)
 
         x = self.conv3(x)
+        x = F.relu(x)
         x = self.conv4(x)
+        x = F.relu(x)
         x = self.conv4a(x)
+        x = F.relu(x)
         x = F.upsample(x, scale_factor=2, mode='nearest')
         x = self.conv5(x)
+        x = F.relu(x)
         x = self.conv5a(x)
+        x = F.relu(x)
         x = F.upsample(x, scale_factor=2, mode='nearest')
         x = self.conv6(x)
-
+        x = F.relu(x)
+        
         return x

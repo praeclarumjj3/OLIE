@@ -4,6 +4,7 @@ from __future__ import print_function
 from torch._C import device
 from modules.dataloader import get_loader
 import torch
+import torch.nn.functional as F
 from torch import nn
 import sys
 from adet.config import get_cfg
@@ -120,29 +121,74 @@ def gram_matrix(inputs):
   
     return torch.stack(grams,0)
 
+layer_names = ['encoder.conv2', 
+'decoder.conv1_2',
+'decoder.convA2_3',
+'decoder.conv4a',
+'decoder.conv5a']
 
-def s_loss(inputs, outputs):
+def normalize(inputs):
+    # pixel_mean = torch.Tensor([103.530, 116.280, 123.675]).cuda().view(3, 1, 1)
+    pixel_std = torch.Tensor([57.375, 57.120, 58.395]).view(3, 1, 1).cuda()
+    normalizer = lambda x: (x) / pixel_std
+    return normalizer(inputs)
 
-    in_gram = gram_matrix(inputs)
-    out_gram = gram_matrix(outputs)
-    loss = nn.MSELoss()
-    style_loss = loss(out_gram, in_gram)
+def get_features(image):
+
+    feats = {}
+    length = image.shape[0]
+    x = []
+    for i in range(length):
+        x.append(image[i].squeeze(0))
+
+
+    with torch.no_grad():
+        masks, images = editor.solo(x)
+        images = normalize(images)
+        size = masks.shape[2]
+        images = F.interpolate(images,(size,size))
+        masks = F.sigmoid(masks)
+        masks = torch.ones_like(masks) - masks
+        x = torch.cat([masks,images], dim=1)
+        for name, layer in editor.reconstructor.named_modules():
+            if str(name) == "encoder" or str(name) == "decoder" or str(name) == "":
+                continue
+            x = layer(x)
+            if str(name) in layer_names:
+              feats[str(name)] = x
+    
+    return feats
+
+def s_loss(inputs, targets):
+
+    l1_loss = nn.L1Loss()
+
+    style_loss = torch.tensor(0.).cuda()
+
+    hole_features = get_features(inputs)
+    recons_features = get_features(targets)
+
+    for name in layer_names:
+        style_loss += l1_loss(hole_features[name], recons_features[name])
+    
     return style_loss
 
 
-def recons_loss(outputs, images, b_boxes):
+def recons_loss(outputs, images, hole_images, masks):
     loss = nn.L1Loss()
     inputs = torch.stack(images,0).cuda()
+    hole_inputs = torch.stack(hole_images, 0)
     outputs = un_normalize(outputs)
+    masks = torch.stack(masks,0).cuda()
 
-#     for i, b_box in enumerate(b_boxes):
-#         for b in b_box:
-#             outputs[i, :,b[1]:b[1]+b[3],b[0]:b[0]+b[2]] = torch.tensor(0.)
-#             inputs[i, :,b[1]:b[1]+b[3],b[0]:b[0]+b[2]] = torch.tensor(0.)
+    hole_loss =  loss(hole_inputs * masks, outputs * masks)
 
-    content_loss =  loss(inputs, outputs)
+    style_mask = torch.tensor(1.) - masks
+    style_loss = s_loss(inputs * style_mask, outputs * style_mask)
 
-    return content_loss
+    alpha = torch.tensor(0.33).cuda()
+
+    return (torch.tensor(1.0).cuda()-alpha)*hole_loss + alpha*style_loss
 
 
 def train(model, num_epochs, dataloader):
@@ -162,14 +208,14 @@ def train(model, num_epochs, dataloader):
             bar.numerator = i+1
             print(bar, end='\r')
 
-            inputs, b_boxes, inpainted_images = data
+            inputs, hole_images, masks = data
 
             # zero the parameter gradients
             optimizer.zero_grad()
 
             # forward + backward + optimize
             outputs = model(inputs)
-            loss = recons_loss(outputs, inpainted_images, b_boxes)
+            loss = recons_loss(outputs, inputs, hole_images, masks)
             loss.backward()
             optimizer.step()
 
@@ -263,14 +309,18 @@ if __name__ == "__main__":
     else:
         if not os.path.exists('checkpoints/'):
             os.makedirs('checkpoints/')
-            logger.info("Instantiating Editor")
+        logger.info("Instantiating Editor")
         editor = Editor(solo,reconstructor)
+        # for name, layer in editor.reconstructor.named_modules():
+        #     print(name)
+        # exit()
         if args.load:
             editor.load_state_dict(torch.load(args.PATH))
+        editor.to(device)
         coco_train_loader, _ = get_loader(device=device, \
                                     root=args.coco+'train2017', \
                                         json=args.coco+'annotations/instances_train2017.json', \
                                             batch_size=args.batch_size, \
                                                 shuffle=False, \
                                                     num_workers=0)
-        train(model=editor.to(device),num_epochs=args.num_epochs, dataloader=coco_train_loader)
+        train(model=editor,num_epochs=args.num_epochs, dataloader=coco_train_loader)

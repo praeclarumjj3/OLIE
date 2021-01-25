@@ -16,7 +16,6 @@ class CocoDataset(data.Dataset):
             transform: image transformer.
         """
         self.root = root
-        self.inpainted = 'datasets/coco/inpainted_train'
         self.coco = COCO(json)
         self.ids = list(self.coco.imgs.keys())
         self.transform = transform
@@ -36,31 +35,28 @@ class CocoDataset(data.Dataset):
         b_boxes = []
         for ann_id in ann_ids:
             b_boxes.append(coco.anns[ann_id]['bbox'])
-
-        image = read_image(os.path.join(self.root, path), format="BGR")
-        image = torch.from_numpy(image.copy()).permute(2,0,1).float()
-        inpainted_image = read_image(os.path.join(self.root, path), format="BGR")
-        inpainted_image = torch.from_numpy(inpainted_image.copy()).permute(2,0,1).float()
-        x_ = image.shape[2]
-        y_ = image.shape[1]
-
-        image = self.transform(image)
-        inpainted_image = self.transform(inpainted_image)
-
-        x_scale = image.shape[2]/x_
-        y_scale = image.shape[1]/y_
-
+        
         for i in range(len(b_boxes)):
             for j in range(len(b_boxes[i])):
-                if j == 0 or j == 2:
-                    b_boxes[i][j] = round(b_boxes[i][j]*x_scale)
-                else:
-                    b_boxes[i][j] = round(b_boxes[i][j]*y_scale)
+                b_boxes[i][j] = round(b_boxes[i][j])
+
+        org = read_image(os.path.join(self.root, path), format="BGR")
+        image = torch.from_numpy(org.copy()).permute(2,0,1).float()
+
+        hole_image = torch.from_numpy(org.copy()).permute(2,0,1).float()
+        mask = torch.zeros_like(hole_image)
+        for b_box in b_boxes:
+            hole_image[:,b_box[1]:b_box[1]+b_box[3],b_box[0]:b_box[0]+b_box[2]] = torch.Tensor([ 123.675, 116.280, 103.530]).view(3, 1, 1)
+            mask[:,b_box[1]:b_box[1]+b_box[3],b_box[0]:b_box[0]+b_box[2]] = torch.tensor(1.)
+
+        image = self.transform(image)
+        hole_image = self.transform(hole_image)
+        mask = self.transform(mask)
 
         if self.device is not None:
-            return image.to(self.device), b_boxes, inpainted_image.to(self.device)
+            return image.to(self.device), hole_image.to(self.device), mask.to(self.device)
         else:
-            return image, b_boxes, inpainted_image
+            return image, hole_image, mask
 
     def __len__(self):
         return len(self.ids)
@@ -80,13 +76,13 @@ def collate_fn(data):
         
     """
 
-    images, b_boxes, inpainted_images = zip(*data)
+    images, hole_images, masks = zip(*data)
     images = list(images)
-    b_boxes = list(b_boxes)
-    inpainted_images = list(inpainted_images)
+    hole_images = list(hole_images)
+    masks = list(masks)
 
-    return images, b_boxes, inpainted_images
-
+    return images, hole_images, masks
+    
 def get_loader(device, root, json, batch_size, shuffle, num_workers):
     """Returns torch.utils.data.DataLoader for custom coco dataset."""
     # COCO caption dataset
@@ -100,7 +96,7 @@ def get_loader(device, root, json, batch_size, shuffle, num_workers):
                        json=json,
                        transform=transform)
     
-    coco= torch.utils.data.Subset(coco, list((range(0,int(len(coco)*0.01)))))
+    coco= torch.utils.data.Subset(coco, list((range(0,int(len(coco)*0.03)))))
     
     # Data loader for COCO dataset
     # This will return (images)
