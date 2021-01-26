@@ -19,6 +19,7 @@ import warnings
 from detectron2.utils.logger import setup_logger
 from etaprogress.progress import ProgressBar
 from detectron2.checkpoint import DetectionCheckpointer
+import torchvision.models as models
 
 
 warnings.filterwarnings("ignore")
@@ -68,7 +69,7 @@ def get_parser():
     parser.add_argument(
         "--batch_size",
         help="Batch Size for dataloaders",
-        default=8,
+        default=4,
         type=int
     )
     parser.add_argument(
@@ -110,66 +111,43 @@ def un_normalize(inputs):
     un_normalizer = lambda x: (x + pixel_mean) * pixel_std
     return un_normalizer(inputs)
 
-
-def gram_matrix(inputs):
-    grams = []
-    for i in range(inputs.shape[0]):
-        tensor = inputs[i]
-        n_filters, h, w = tensor.size()
-        tensor = tensor.view(n_filters, h * w)
-        grams.append(torch.mm(tensor, tensor.t()))
-  
-    return torch.stack(grams,0)
-
-layer_names = ['encoder.conv2', 
-'decoder.conv1_2',
-'decoder.convA2_3',
-'decoder.conv4a',
-'decoder.conv5a']
-
-def normalize(inputs):
-    # pixel_mean = torch.Tensor([103.530, 116.280, 123.675]).cuda().view(3, 1, 1)
-    pixel_std = torch.Tensor([57.375, 57.120, 58.395]).view(3, 1, 1).cuda()
-    normalizer = lambda x: (x) / pixel_std
+def vgg_normalize(inputs):
+    pixel_mean = torch.tensor([0.485, 0.456, 0.406]).view(3,1,1).cuda()
+    pixel_std = torch.tensor([0.229, 0.224, 0.225]).view(3,1,1).cuda()
+    normalizer = lambda x: (x - pixel_mean) / pixel_std
     return normalizer(inputs)
 
-def get_features(image):
 
-    feats = {}
-    length = image.shape[0]
-    x = []
-    for i in range(length):
-        x.append(image[i].squeeze(0))
+def get_features(image, layers=None):
+    if layers is None:
+        layers = {'0': 'conv1_1',
+                  '5': 'conv2_1',
+                  '10': 'conv3_1',
+                  '19': 'conv4_1',
+                  '28': 'conv5_1'}
+    features = {}
+    image = torch.clamp(image, min=0., max = 255.) * torch.tensor(1./255)
+    image = torch.stack([image[:,2,:,:],image[:,1,:,:],image[:,0,:,:]],1)
 
-
-    with torch.no_grad():
-        masks, images = editor.solo(x)
-        images = normalize(images)
-        size = masks.shape[2]
-        images = F.interpolate(images,(size,size))
-        masks = F.sigmoid(masks)
-        masks = torch.ones_like(masks) - masks
-        x = torch.cat([masks,images], dim=1)
-        for name, layer in editor.reconstructor.named_modules():
-            if str(name) == "encoder" or str(name) == "decoder" or str(name) == "":
-                continue
-            x = layer(x)
-            if str(name) in layer_names:
-              feats[str(name)] = x
+    x = vgg_normalize(image)
+    for name, layer in enumerate(vgg.features):
+      x = layer(x)
+      if str(name) in layers:
+        f = x
+        f = f * torch.tensor(255.)
+        features[layers[str(name)]] = f
     
-    return feats
+    return features
 
 def s_loss(inputs, targets):
-
+    
     l1_loss = nn.L1Loss()
-
     style_loss = torch.tensor(0.).cuda()
-
     hole_features = get_features(inputs)
     recons_features = get_features(targets)
 
-    for name in layer_names:
-        style_loss += l1_loss(hole_features[name], recons_features[name])
+    for layer in hole_features:
+        style_loss += l1_loss(hole_features[layer], recons_features[layer])
     
     return style_loss
 
@@ -323,4 +301,10 @@ if __name__ == "__main__":
                                             batch_size=args.batch_size, \
                                                 shuffle=False, \
                                                     num_workers=0)
+        vgg = models.vgg19(pretrained=True).cuda().eval()
+    
+        for i, layer in enumerate(vgg.features):
+            if isinstance(layer, torch.nn.MaxPool2d):
+                vgg.features[i] = torch.nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
+
         train(model=editor,num_epochs=args.num_epochs, dataloader=coco_train_loader)

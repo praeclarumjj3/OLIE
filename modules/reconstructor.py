@@ -17,9 +17,9 @@ def masking(image, phase, index):
     return image*overlap
 
 def normalize(inputs):
-    # pixel_mean = torch.Tensor([103.530, 116.280, 123.675]).cuda().view(3, 1, 1)
+    pixel_mean = torch.Tensor([103.530, 116.280, 123.675]).view(3, 1, 1).cuda()
     pixel_std = torch.Tensor([57.375, 57.120, 58.395]).view(3, 1, 1).cuda()
-    normalizer = lambda x: (x) / pixel_std
+    normalizer = lambda x: (x - pixel_mean) / pixel_std
     return normalizer(inputs)
 
 class Reconstructor(nn.Module):
@@ -51,9 +51,9 @@ class Encoder(nn.Module):
         
     def forward(self, x):
         x = self.conv1(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
         x = self.conv2(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
         
         return x
         
@@ -79,30 +79,30 @@ class Decoder(nn.Module):
     
     def forward(self, x):
         x = self.conv1_1(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
         x = self.conv1_2(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
 
         x = self.convA2_1(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
         x = self.convA2_2(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
         x = self.convA2_3(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
 
         x = self.conv3(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
         x = self.conv4(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
         x = self.conv4a(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
         x = F.upsample(x, scale_factor=2, mode='nearest')
         x = self.conv5(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
         x = self.conv5a(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
         x = F.upsample(x, scale_factor=2, mode='nearest')
         x = self.conv6(x)
-        x = F.relu(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
         
         return x
