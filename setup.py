@@ -82,7 +82,9 @@ setup(
         "python-Levenshtein",
         "Polygon3",
         "shapely",
-        "etaprogress"
+        "etaprogress",
+        "opencv-python",
+        "pycocotools"
     ],
     extras_require={"all": ["psutil"]},
     ext_modules=get_extensions(),

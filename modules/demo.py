@@ -16,7 +16,7 @@ from PIL import Image
 import torchvision.transforms as transforms
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.data.detection_utils import read_image
-from .run import Editor
+from run import Editor
 
 
 warnings.filterwarnings("ignore")
@@ -79,6 +79,11 @@ def demo(editor, args):
         image = read_image(path, format="BGR")
         img = torch.from_numpy(image.copy()).permute(2,0,1).float()
         img = transform(img)
+        
+        hole_image = read_image('inputs/hole_image_train{}.jpg'.format(i+1), format="BGR")
+        hole_img = torch.from_numpy(hole_image.copy()).permute(2,0,1).float()
+        hole_img = transform(hole_img)
+        
         f, (ax1,ax2,ax3) = plt.subplots(1,3)
         org = img * torch.tensor(1./255)
         org = org.cpu().permute(1,2,0).numpy()
@@ -91,7 +96,7 @@ def demo(editor, args):
         logger.info("Starting Visualization")
         start_time = time.time()
         with torch.no_grad():
-            reconstruction_1 = editor(batched_input)
+            reconstruction_1 = editor(batched_input, [hole_img])
 #             reconstruction_2 = editor(batched_input)
         end_time = time.time()
         logger.info("Duration: {}".format(end_time-start_time))
@@ -104,10 +109,6 @@ def demo(editor, args):
 #         reconstruction_2 = torch.clamp(torch.round(reconstruction_2.squeeze(0).cpu()),min=0., max = 255.) * torch.tensor(1./255)
 #         reconstruction_2 = reconstruction_2.permute(1, 2, 0).numpy()
 #         reconstruction_2 = reconstruction_2[:,:,::-1]
-        
-        hole_image = read_image('inputs/hole_image_val{}.jpg'.format(i+1), format="BGR")
-        hole_img = torch.from_numpy(hole_image.copy()).permute(2,0,1).float()
-        hole_img = transform(hole_img)
         hole_org = hole_img * torch.tensor(1./255)
         hole_org = hole_org.cpu().permute(1,2,0).numpy()
         hole_org = hole_org[:,:,::-1]
@@ -121,7 +122,7 @@ def demo(editor, args):
 #         ax4.imshow(reconstruction_2)
 #         ax4.set_title("Complete Loss")
 #         ax4.axis('off')
-        f.savefig('visualizations/val_demo{}.jpg'.format(i+1))
+        f.savefig('visualizations/train_demo{}.jpg'.format(i+1))
 
 if __name__ == "__main__":
     logger = setup_logger()

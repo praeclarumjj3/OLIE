@@ -33,9 +33,10 @@ class Editor(nn.Module):
         self.solo = solo
         self.reconstructor = reconstructor
 
-    def forward(self, x):
+    def forward(self, x, hole_images):
+        hole_images = torch.stack(hole_images,0)
         masks, images = self.solo(x)
-        output = self.reconstructor(masks, images)
+        output = self.reconstructor(masks, hole_images)
         return output
 
 
@@ -111,6 +112,12 @@ def un_normalize(inputs):
     un_normalizer = lambda x: (x + pixel_mean) * pixel_std
     return un_normalizer(inputs)
 
+def normalize(inputs):
+    pixel_mean = torch.Tensor(cfg.MODEL.PIXEL_MEAN).to(device).view(3, 1, 1)
+    pixel_std = torch.Tensor(cfg.MODEL.PIXEL_STD).to(device).view(3, 1, 1)
+    normalizer = lambda x: (x - pixel_mean) / pixel_std
+    return normalizer(inputs)
+
 def vgg_normalize(inputs):
     pixel_mean = torch.tensor([0.485, 0.456, 0.406]).view(3,1,1).cuda()
     pixel_std = torch.tensor([0.229, 0.224, 0.225]).view(3,1,1).cuda()
@@ -123,8 +130,9 @@ def get_features(image, layers=None):
         layers = {'0': 'conv1_1',
                   '5': 'conv2_1',
                   '10': 'conv3_1',
-                  '19': 'conv4_1',
-                  '28': 'conv5_1'}
+                #   '19': 'conv4_1',
+                #   '28': 'conv5_1'
+                  }
     features = {}
     image = torch.clamp(image, min=0., max = 255.) * torch.tensor(1./255)
     image = torch.stack([image[:,2,:,:],image[:,1,:,:],image[:,0,:,:]],1)
@@ -159,14 +167,22 @@ def recons_loss(outputs, images, hole_images, masks):
     outputs = un_normalize(outputs)
     masks = torch.stack(masks,0).cuda()
 
-    hole_loss =  loss(hole_inputs * masks, outputs * masks)
+    hole_masks = torch.tensor(1.) - masks
+    bg_loss =  loss(hole_inputs * hole_masks, outputs * hole_masks)
 
-    style_mask = torch.tensor(1.) - masks
-    style_loss = s_loss(inputs * style_mask, outputs * style_mask)
+    
+    hole_loss = s_loss(inputs * masks, outputs * masks)
 
     alpha = torch.tensor(0.33).cuda()
+    t_loss = (torch.tensor(1.0).cuda()-alpha)*bg_loss + alpha*hole_loss
 
-    return (torch.tensor(1.0).cuda()-alpha)*hole_loss + alpha*style_loss
+#     print('Style Loss: {}'.format(hole_loss))
+#     print('Simple Loss: {}'.format(bg_loss))
+#     print('Alpha: {}'.format(alpha))
+#     print('Total Loss: {}'.format(t_loss))
+#     print('----------------------')
+
+    return t_loss
 
 
 def train(model, num_epochs, dataloader):
@@ -192,7 +208,7 @@ def train(model, num_epochs, dataloader):
             optimizer.zero_grad()
 
             # forward + backward + optimize
-            outputs = model(inputs)
+            outputs = model(inputs, hole_images)
             loss = recons_loss(outputs, inputs, hole_images, masks)
             loss.backward()
             optimizer.step()
