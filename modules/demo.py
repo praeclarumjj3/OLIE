@@ -96,7 +96,7 @@ def demo(editor, args):
         logger.info("Starting Visualization")
         start_time = time.time()
         with torch.no_grad():
-            reconstruction_1 = editor(batched_input, [hole_img])
+            reconstruction_1 = editor(batched_input)
 #             reconstruction_2 = editor(batched_input)
         end_time = time.time()
         logger.info("Duration: {}".format(end_time-start_time))

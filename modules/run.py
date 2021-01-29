@@ -33,10 +33,9 @@ class Editor(nn.Module):
         self.solo = solo
         self.reconstructor = reconstructor
 
-    def forward(self, x, hole_images):
-        hole_images = torch.stack(hole_images,0)
+    def forward(self, x):
         masks, images = self.solo(x)
-        output = self.reconstructor(masks, hole_images)
+        output = self.reconstructor(masks, images)
         return output
 
 
@@ -208,7 +207,7 @@ def train(model, num_epochs, dataloader):
             optimizer.zero_grad()
 
             # forward + backward + optimize
-            outputs = model(inputs, hole_images)
+            outputs = model(inputs)
             loss = recons_loss(outputs, inputs, hole_images, masks)
             loss.backward()
             optimizer.step()
