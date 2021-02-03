@@ -9,7 +9,7 @@ from torch import nn
 import sys
 from adet.config import get_cfg
 from modules.solov2 import SOLOv2
-from modules.reconstructor import Reconstructor
+from modules.reconstructor import Reconstructor, Encoder, BaseDecoder, EditDecoder, OrigDecoder
 import matplotlib.pyplot as plt
 import argparse
 import os
@@ -102,6 +102,12 @@ def get_parser():
         default=False,
         type=bool
     )
+    parser.add_argument(
+        "--pretrain",
+        help="To train the original reconstructor",
+        default=False,
+        type=bool
+    )
     return parser
 
 
@@ -140,9 +146,7 @@ def get_features(image, layers=None):
     for name, layer in enumerate(vgg.features):
       x = layer(x)
       if str(name) in layers:
-        f = x
-        f = f * torch.tensor(255.)
-        features[layers[str(name)]] = f
+        features[layers[str(name)]] = x
     
     return features
 
@@ -159,7 +163,7 @@ def s_loss(inputs, targets):
     return style_loss
 
 
-def recons_loss(outputs, images, hole_images, masks):
+def edit_loss(outputs, images, hole_images, masks):
     loss = nn.L1Loss()
     inputs = torch.stack(images,0).cuda()
     hole_inputs = torch.stack(hole_images, 0)
@@ -172,8 +176,8 @@ def recons_loss(outputs, images, hole_images, masks):
     
     hole_loss = s_loss(inputs * masks, outputs * masks)
 
-    alpha = torch.tensor(0.33).cuda()
-    t_loss = (torch.tensor(1.0).cuda()-alpha)*bg_loss + alpha*hole_loss
+    alpha = torch.tensor(0.1, dtype=float).cuda()
+    t_loss = alpha*bg_loss + hole_loss
 
 #     print('Style Loss: {}'.format(hole_loss))
 #     print('Simple Loss: {}'.format(bg_loss))
@@ -183,6 +187,65 @@ def recons_loss(outputs, images, hole_images, masks):
 
     return t_loss
 
+def recons_loss(outputs, images):
+    loss = nn.L1Loss()
+    inputs = torch.stack(images,0).cuda()
+    outputs = un_normalize(outputs)
+
+    bg_loss =  loss(inputs, outputs)
+
+    alpha = torch.tensor(0.1, dtype=float).cuda()
+    t_loss = alpha*bg_loss
+
+    return t_loss
+
+def pretrain(model, num_epochs, dataloader):
+    
+    optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=1e-2)
+
+    best_loss = 1e10
+    best_epoch = 0
+    epoch_loss = []
+
+    logger.info("Starting Training")
+    for j in range(num_epochs):
+        running_loss = []
+        total = len(dataloader)
+        bar = ProgressBar(total, max_width=80)
+        for i, data in tqdm(enumerate(dataloader, 0)):
+            bar.numerator = i+1
+            print(bar, end='\r')
+
+            inputs, _, __ = data
+
+            # zero the parameter gradients
+            optimizer.zero_grad()
+
+            # forward + backward + optimize
+            outputs = model(inputs)
+            loss = recons_loss(outputs, inputs)
+            loss.backward()
+            optimizer.step()
+
+            running_loss.append(loss.item())
+            sys.stdout.flush()
+        
+        avg_loss = np.mean(running_loss)
+        print("Epoch {}: Loss: {}".format(j+1,avg_loss))
+        epoch_loss.append(avg_loss)
+        
+        if avg_loss < best_loss:
+            best_loss = avg_loss
+            best_epoch = j+1
+            print('Model saved at Epoch: {}'.format(j+1))
+            torch.save(base_decoder.state_dict(),'checkpoints/base_decoder.pth')
+            torch.save(model.state_dict(),'checkpoints/editor_pretrained.pth')
+            torch.save(encoder.state_dict(),'checkpoints/encoder.pth')
+    logger.info("Finished Training with best loss: {} at Epoch: {}".format(best_loss, best_epoch))
+    plt.plot(np.linspace(1, num_epochs, num_epochs).astype(int), epoch_loss)
+    if not os.path.exists('losses/'):
+            os.makedirs('losses/')
+    plt.savefig('losses/pretrain_loss_{}.png'.format(args.lr))
 
 def train(model, num_epochs, dataloader):
 
@@ -208,7 +271,7 @@ def train(model, num_epochs, dataloader):
 
             # forward + backward + optimize
             outputs = model(inputs)
-            loss = recons_loss(outputs, inputs, hole_images, masks)
+            loss = edit_loss(outputs, inputs, hole_images, masks)
             loss.backward()
             optimizer.step()
 
@@ -280,13 +343,20 @@ if __name__ == "__main__":
     batched_input.append(image)
     r,_ = solo(batched_input)
     
-    reconstructor = Reconstructor(in_channels=r.shape[1])
+    encoder = Encoder(in_channels=r.shape[1])
+    edit_decoder = EditDecoder()
+    orig_decoder = OrigDecoder()
+    base_decoder = BaseDecoder()
+    orig_reconstructor = Reconstructor(encoder=encoder, decoder=orig_decoder, base_decoder=base_decoder)
+    edit_reconstructor = Reconstructor(encoder=encoder, decoder=edit_decoder, base_decoder=base_decoder)
+    # reconstructor = Reconstructor(in_channels=r.shape[1])
 
-    recons_params = sum(p.numel() for p in reconstructor.parameters())
+    edit_recons_params = sum(p.numel() for p in edit_reconstructor.parameters())
     solo_params = sum(p.numel() for p in solo.parameters())
+    orig_decoder_params = sum(p.numel() for p in orig_decoder.parameters())
 
-    logger.info("Total Params: {}".format(recons_params+solo_params))
-    logger.info("Trainable Params: {}".format(recons_params))
+    logger.info("Total Params: {}".format(edit_recons_params+solo_params+orig_decoder_params))
+    logger.info("Trainable Params: {}".format(edit_recons_params+orig_decoder_params))
     logger.info("Non-Trainable Params: {}".format(solo_params))
     
     if args.eval:
@@ -296,30 +366,42 @@ if __name__ == "__main__":
                                             batch_size=args.batch_size, \
                                                 shuffle=False, \
                                                     num_workers=0)
-        editor_eval =Editor(solo,reconstructor)
+        editor_eval =Editor(solo,edit_reconstructor)
         editor_eval.load_state_dict(torch.load(args.PATH))
         eval(editor_eval.to(device),coco_test_loader)
     else:
         if not os.path.exists('checkpoints/'):
             os.makedirs('checkpoints/')
         logger.info("Instantiating Editor")
-        editor = Editor(solo,reconstructor)
+        editor_orig = Editor(solo,orig_reconstructor)
+        editor_edit = Editor(solo,edit_reconstructor)
         # for name, layer in editor.reconstructor.named_modules():
         #     print(name)
         # exit()
-        if args.load:
-            editor.load_state_dict(torch.load(args.PATH))
-        editor.to(device)
         coco_train_loader, _ = get_loader(device=device, \
-                                    root=args.coco+'train2017', \
-                                        json=args.coco+'annotations/instances_train2017.json', \
-                                            batch_size=args.batch_size, \
-                                                shuffle=False, \
-                                                    num_workers=0)
-        vgg = models.vgg19(pretrained=True).cuda().eval()
-    
-        for i, layer in enumerate(vgg.features):
-            if isinstance(layer, torch.nn.MaxPool2d):
-                vgg.features[i] = torch.nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
+                                        root=args.coco+'train2017', \
+                                            json=args.coco+'annotations/instances_train2017.json', \
+                                                batch_size=args.batch_size, \
+                                                    shuffle=False, \
+                                                        num_workers=0)
+        
+        if args.pretrain:
+            if args.load:
+                editor_orig.load_state_dict(torch.load('checkpoints/editor_pretrained.pth'))
+            editor_orig.to(device)
 
-        train(model=editor,num_epochs=args.num_epochs, dataloader=coco_train_loader)
+            pretrain(model=editor_orig,num_epochs=args.num_epochs, dataloader=coco_train_loader)
+        
+        else:
+            if args.load:
+                editor_edit.load_state_dict(torch.load(args.PATH))
+            editor_edit.to(device)
+            base_decoder.load_state_dict(torch.load('checkpoints/base_decoder.pth'))
+            # encoder.load_state_dict(torch.load('checkpoints/encoder.pth'))
+            vgg = models.vgg19(pretrained=True).cuda().eval()
+
+            for i, layer in enumerate(vgg.features):
+                if isinstance(layer, torch.nn.MaxPool2d):
+                    vgg.features[i] = torch.nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
+
+            train(model=editor_edit,num_epochs=args.num_epochs, dataloader=coco_train_loader)

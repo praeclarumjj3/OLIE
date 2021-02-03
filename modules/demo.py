@@ -4,7 +4,7 @@ import torch
 from torch import nn
 from adet.config import get_cfg
 from modules.solov2 import SOLOv2
-from modules.reconstructor import Reconstructor
+from modules.reconstructor import Reconstructor, Encoder, BaseDecoder, EditDecoder, OrigDecoder
 import matplotlib.pyplot as plt
 import argparse
 import os
@@ -144,11 +144,16 @@ if __name__ == "__main__":
     batched_input.append(image)
     r,_ = solo(batched_input)
     
-    reconstructor = Reconstructor(in_channels=r.shape[1])
+    encoder = Encoder(in_channels=r.shape[1])
+    edit_decoder = EditDecoder()
+    orig_decoder = OrigDecoder()
+    base_decoder = BaseDecoder()
+    orig_reconstructor = Reconstructor(encoder=encoder, decoder=orig_decoder, base_decoder=base_decoder)
+    edit_reconstructor = Reconstructor(encoder=encoder, decoder=edit_decoder, base_decoder=base_decoder)
 
     if not os.path.exists('visualizations/'):
         os.makedirs('visualizations/')
         logger.info("Instantiating Editor")
-    editor_demo =Editor(solo,reconstructor)
-    editor_demo.load_state_dict(torch.load(args.PATH))
+    editor_demo =Editor(solo, orig_reconstructor)
+    editor_demo.load_state_dict(torch.load('checkpoints/editor_pretrained.pth'))
     demo(editor=editor_demo.cuda(), args=args)

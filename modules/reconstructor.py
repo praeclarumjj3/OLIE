@@ -24,11 +24,12 @@ def normalize(inputs):
 
 class Reconstructor(nn.Module):
 
-    def __init__(self, in_channels):
+    def __init__(self, encoder, decoder, base_decoder):
         super().__init__()
 
-        self.encoder = Encoder(in_channels=in_channels)
-        self.decoder = Decoder()
+        self.encoder = encoder
+        self.base_decoder = base_decoder
+        self.decoder = decoder
 
     def forward(self, masks, images):
         images = normalize(images)
@@ -38,6 +39,7 @@ class Reconstructor(nn.Module):
         masks = torch.ones_like(masks) - masks
         masks = torch.cat([masks,images], dim=1)
         x = self.encoder(masks)
+        x = self.base_decoder(x)
         x = self.decoder(x)
 
         return x
@@ -47,22 +49,30 @@ class Encoder(nn.Module):
     def __init__(self, in_channels):
         super().__init__()
         self.conv1 = nn.Conv2d(in_channels+3, 256, kernel_size=3, stride=1, padding=1)
-        self.conv2 = nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1)
+        self.conv4 = nn.Conv2d(512, 1024, kernel_size=3, stride=1, padding=1)
+        self.pool = nn.MaxPool2d(kernel_size=2,stride=2)
         
     def forward(self, x):
         x = self.conv1(x)
         x = F.leaky_relu(x, negative_slope=0.4)
         x = self.conv2(x)
         x = F.leaky_relu(x, negative_slope=0.4)
-        
-        return x
-        
+        x = self.pool(x)
+        x = self.conv3(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
+        x = self.conv4(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
+        x = self.pool(x)
 
-class Decoder(nn.Module):
+        return x
+
+class BaseDecoder(nn.Module):
     def __init__(self):
-        super(Decoder, self).__init__()
-        self.conv1_1 = nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1)
-        self.conv1_2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
+        super(BaseDecoder, self).__init__()
+        self.conv1_1 = nn.Conv2d(1024, 512, kernel_size=3, stride=1, padding=1)
+        self.conv1_2 = nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1)
         
         # dilated convolution blocks
         self.convA2_1 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=2, dilation=2)
@@ -70,6 +80,57 @@ class Decoder(nn.Module):
         self.convA2_3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=8, dilation=8)
 
         self.conv3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
+        # self.conv4 = nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=1) 
+        # self.conv4a = nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1)
+        # self.conv5 = nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1)
+        # self.conv5a = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1) 
+        # self.conv6 = nn.Conv2d(64, 3, kernel_size=5, stride=1, padding=2) 
+
+    
+    def forward(self, x):
+        x = self.conv1_1(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
+        x = self.conv1_2(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
+        x = F.upsample(x, scale_factor=2, mode='nearest')
+
+        x = self.convA2_1(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
+        x = self.convA2_2(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
+        x = self.convA2_3(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
+        x = F.upsample(x, scale_factor=2, mode='nearest')
+
+        x = self.conv3(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
+        # x = self.conv4(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
+        # x = self.conv4a(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
+        # x = F.upsample(x, scale_factor=2, mode='nearest')
+        # x = self.conv5(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
+        # x = self.conv5a(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
+        # x = F.upsample(x, scale_factor=2, mode='nearest')
+        # x = self.conv6(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
+        
+        return x        
+
+class OrigDecoder(nn.Module):
+    def __init__(self):
+        super(OrigDecoder, self).__init__()
+        # self.conv1_1 = nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1)
+        # self.conv1_2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
+        
+        # # dilated convolution blocks
+        # self.convA2_1 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=2, dilation=2)
+        # self.convA2_2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=4, dilation=4)
+        # self.convA2_3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=8, dilation=8)
+
+        # self.conv3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
         self.conv4 = nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=1) 
         self.conv4a = nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1)
         self.conv5 = nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1)
@@ -78,20 +139,20 @@ class Decoder(nn.Module):
 
     
     def forward(self, x):
-        x = self.conv1_1(x)
-        x = F.leaky_relu(x, negative_slope=0.4)
-        x = self.conv1_2(x)
-        x = F.leaky_relu(x, negative_slope=0.4)
+        # x = self.conv1_1(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
+        # x = self.conv1_2(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
 
-        x = self.convA2_1(x)
-        x = F.leaky_relu(x, negative_slope=0.4)
-        x = self.convA2_2(x)
-        x = F.leaky_relu(x, negative_slope=0.4)
-        x = self.convA2_3(x)
-        x = F.leaky_relu(x, negative_slope=0.4)
+        # x = self.convA2_1(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
+        # x = self.convA2_2(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
+        # x = self.convA2_3(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
 
-        x = self.conv3(x)
-        x = F.leaky_relu(x, negative_slope=0.4)
+        # x = self.conv3(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
         x = self.conv4(x)
         x = F.leaky_relu(x, negative_slope=0.4)
         x = self.conv4a(x)
@@ -105,4 +166,74 @@ class Decoder(nn.Module):
         x = self.conv6(x)
         x = F.leaky_relu(x, negative_slope=0.4)
         
+        return x
+
+class EditDecoder(nn.Module):
+    def __init__(self):
+        super(EditDecoder, self).__init__()
+        # self.conv1_1 = nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1)
+        # self.conv1_2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
+        
+        # # dilated convolution blocks
+        # self.convA2_1 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=2, dilation=2)
+        # self.convA2_2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=4, dilation=4)
+        # self.convA2_3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=8, dilation=8)
+
+        # self.conv3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
+        self.conv4 = nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=1)
+        self.perb4 = Perturbor(shape=(3,160,160,128)) 
+        self.conv4a = nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1)
+        self.perb4a = Perturbor(shape=(3,160,160,128))
+        self.conv5 = nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1)
+        self.perb5 = Perturbor(shape=(3,320,320,64))
+        self.conv5a = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)
+        self.perb5a = Perturbor(shape=(3,320,320,64)) 
+        self.conv6 = nn.Conv2d(64, 3, kernel_size=5, stride=1, padding=2) 
+
+    
+    def forward(self, x):
+        # x = self.conv1_1(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
+        # x = self.conv1_2(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
+
+        # x = self.convA2_1(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
+        # x = self.convA2_2(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
+        # x = self.convA2_3(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
+
+        # x = self.conv3(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
+        x = self.conv4(x)
+        x = self.perb4(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
+        x = self.conv4a(x)
+        x = self.perb4a(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
+        x = F.upsample(x, scale_factor=2, mode='nearest')
+        x = self.conv5(x)
+        x = self.perb5(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
+        x = self.conv5a(x)
+        x = self.perb5a(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
+        x = F.upsample(x, scale_factor=2, mode='nearest')
+        x = self.conv6(x)
+        x = F.leaky_relu(x, negative_slope=0.4)
+        
+        return x
+
+class Perturbor(nn.Module):
+    def __init__(self, shape):
+        super().__init__()
+        self.W = torch.nn.Parameter(torch.randn(shape))
+        self.W.requires_grad = True
+        
+        
+    def forward(self, x):
+        
+        x = torch.mul(x,self.W)
+
         return x
