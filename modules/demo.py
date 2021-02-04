@@ -155,5 +155,5 @@ if __name__ == "__main__":
         os.makedirs('visualizations/')
         logger.info("Instantiating Editor")
     editor_demo =Editor(solo, orig_reconstructor)
-    editor_demo.load_state_dict(torch.load('checkpoints/editor_pretrained.pth'))
+    editor_demo.load_state_dict(torch.load(args.PATH))
     demo(editor=editor_demo.cuda(), args=args)
