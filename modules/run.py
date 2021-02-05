@@ -104,6 +104,16 @@ def get_parser():
     )
     return parser
 
+def visualize(x,y):
+    x = x[0].cpu() 
+    x = x.permute(1, 2, 0).numpy()
+    y = y[0].cpu() 
+    y = y.permute(1, 2, 0).numpy()
+    f, (ax1,ax2) = plt.subplots(1,2)
+    ax1.imshow(x)
+    ax2.imshow(y)
+    f.savefig('visualizations/run.jpg')
+
 
 def un_normalize(inputs):
     pixel_mean = torch.Tensor(cfg.MODEL.PIXEL_MEAN).to(device).view(3, 1, 1)
@@ -129,8 +139,8 @@ def get_features(image, layers=None):
         layers = {'0': 'conv1_1',
                   '5': 'conv2_1',
                   '10': 'conv3_1',
-                #   '19': 'conv4_1',
-                #   '28': 'conv5_1'
+                  '19': 'conv4_1',
+                  '28': 'conv5_1'
                   }
     features = {}
     image = torch.clamp(image, min=0., max = 255.) * torch.tensor(1./255)
@@ -165,10 +175,14 @@ def edit_loss(outputs, images, hole_images, masks):
     masks = torch.stack(masks,0).cuda()
 
     hole_masks = torch.tensor(1.) - masks
-    bg_loss =  loss(hole_inputs * hole_masks, outputs * hole_masks)
+
+    # visualize(inputs * hole_masks*torch.tensor(1./255),hole_inputs * masks*torch.tensor(1./255))
+    # exit()
+
+    bg_loss =  loss(inputs * hole_masks, outputs * hole_masks)
 
     
-    hole_loss = s_loss(inputs * masks, outputs * masks)
+    hole_loss = s_loss(hole_inputs * masks, outputs * masks)
 
     alpha = torch.tensor(10., dtype=float)
     t_loss = bg_loss + alpha*hole_loss

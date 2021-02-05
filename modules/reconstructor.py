@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+import matplotlib.pyplot as plt
 
 bench_maps = [(40,44), (50,58), (62,71), (74,83), (86,95), (98,107), (110,118), (112,130)]
 car_maps = [(0,8), (12,20), (24,32), (36,44), (48,56), (60,63), (72,75), (84,87), (96,99), (108,111)]
@@ -22,6 +23,18 @@ def normalize(inputs):
     normalizer = lambda x: (x.cuda() - pixel_mean) / pixel_std
     return normalizer(inputs)
 
+def visualize(x,layer):
+    dim = int(x.shape[1])
+    x = x[0].cpu() 
+    x = x.permute(1, 2, 0).numpy()
+    f, axarr = plt.subplots(dim,figsize=(16,16))
+    for j in range(x.shape[2]):
+        r = int(j/dim)
+        c = j%12
+        axarr[r,c].imshow(x[:,:,j])
+        axarr[r,c].axis('off')
+    f.savefig('visualizations/{}.jpg'.format(layer))
+
 class Reconstructor(nn.Module):
 
     def __init__(self, in_channels):
@@ -38,7 +51,6 @@ class Reconstructor(nn.Module):
         masks = torch.ones_like(masks) - masks
         masks = torch.cat([masks,images], dim=1)
         x = self.encoder(masks)
-        x = self.base_decoder(x)
         x = self.decoder(x)
 
         return x

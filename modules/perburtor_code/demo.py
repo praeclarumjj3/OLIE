@@ -50,6 +50,12 @@ def get_parser():
         default='checkpoints/editor.pth',
         type=str
     )
+    parser.add_argument(
+        "--edit",
+        help="Demo for editted image or not",
+        default=False,
+        type=bool
+    )
     return parser
 
 
@@ -150,6 +156,9 @@ if __name__ == "__main__":
     if not os.path.exists('visualizations/'):
         os.makedirs('visualizations/')
         logger.info("Instantiating Editor")
-    editor_demo =Editor(solo, orig_reconstructor)
+    if args.edit:
+        editor_demo =Editor(solo, edit_reconstructor)
+    else:
+        editor_demo =Editor(solo, orig_reconstructor)
     editor_demo.load_state_dict(torch.load(args.PATH))
     demo(editor=editor_demo.cuda(), args=args)

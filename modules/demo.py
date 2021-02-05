@@ -76,7 +76,7 @@ def demo(editor, args):
         img = torch.from_numpy(image.copy()).permute(2,0,1).float()
         img = transform(img)
         
-        hole_image = read_image('inputs/hole_image_train{}.jpg'.format(i+1), format="BGR")
+        hole_image = read_image('inputs/hole_image_val{}.jpg'.format(i+1), format="BGR")
         hole_img = torch.from_numpy(hole_image.copy()).permute(2,0,1).float()
         hole_img = transform(hole_img)
         
@@ -118,7 +118,7 @@ def demo(editor, args):
         ax3.set_title("Reconstruction")
         ax3.axis('off')
 
-        f.savefig('visualizations/train_demo{}.jpg'.format(i+1))
+        f.savefig('visualizations/val_demo{}.jpg'.format(i+1))
 
 if __name__ == "__main__":
     logger = setup_logger()
