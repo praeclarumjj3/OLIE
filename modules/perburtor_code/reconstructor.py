@@ -59,7 +59,6 @@ class Encoder(nn.Module):
         x = F.leaky_relu(x, negative_slope=0.4)
         x = self.conv2(x)
         x = self.bn2(x)
-        x = F.leaky_relu(x, negative_slope=0.4)
 
         return x
 
@@ -163,7 +162,6 @@ class OrigDecoder(nn.Module):
         x = F.leaky_relu(x, negative_slope=0.4)
         x = F.upsample(x, scale_factor=2, mode='nearest')
         x = self.conv6(x)
-        x = F.leaky_relu(x, negative_slope=0.4)
         
         return x
 
@@ -220,7 +218,6 @@ class EditDecoder(nn.Module):
         x = F.leaky_relu(x, negative_slope=0.4)
         x = F.upsample(x, scale_factor=2, mode='nearest')
         x = self.conv6(x)
-        x = F.leaky_relu(x, negative_slope=0.4)
         
         return x
 

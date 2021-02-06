@@ -3,9 +3,6 @@ import torch.nn.functional as F
 import torch
 import matplotlib.pyplot as plt
 
-bench_maps = [(40,44), (50,58), (62,71), (74,83), (86,95), (98,107), (110,118), (112,130)]
-car_maps = [(0,8), (12,20), (24,32), (36,44), (48,56), (60,63), (72,75), (84,87), (96,99), (108,111)]
-
 def masking(image, phase, index):
     overlap = torch.ones_like(image)
     if phase=="single":
@@ -27,7 +24,7 @@ def visualize(x,layer):
     dim = int(x.shape[1])
     x = x[0].cpu() 
     x = x.permute(1, 2, 0).numpy()
-    f, axarr = plt.subplots(dim,figsize=(16,16))
+    f, axarr = plt.subplots(dim,dim,figsize=(16,16))
     for j in range(x.shape[2]):
         r = int(j/dim)
         c = j%12
@@ -46,7 +43,7 @@ class Reconstructor(nn.Module):
     def forward(self, masks, images):
         size = masks.shape[2]
         images = F.interpolate(images,(size,size))
-        images = normalize(images)
+        # images = normalize(images)
         masks = F.sigmoid(masks)
         masks = torch.ones_like(masks) - masks
         masks = torch.cat([masks,images], dim=1)
@@ -55,22 +52,21 @@ class Reconstructor(nn.Module):
 
         return x
 
-
 class Encoder(nn.Module):
     def __init__(self, in_channels):
         super().__init__()
-        self.conv1 = nn.Conv2d(in_channels+3, 256, kernel_size=3, stride=1, padding=1)
-        self.bn1 = nn.BatchNorm2d(256)
-        self.conv2 = nn.Conv2d(256, 512, kernel_size=3, stride=1, padding=1)
-        self.bn2 = nn.BatchNorm2d(512)
+        self.conv1 = nn.Conv2d(in_channels+256, 512, kernel_size=3, stride=1, padding=1)
+        # self.bn1 = nn.BatchNorm2d(512)
+        self.conv2 = nn.Conv2d(512, 512, kernel_size=3, stride=1, padding=1)
+        # self.bn2 = nn.BatchNorm2d(512)
         
     def forward(self, x):
         x = self.conv1(x)
-        x = self.bn1(x)
+        # x = self.bn1(x)
         x = F.leaky_relu(x, negative_slope=0.4)
         x = self.conv2(x)
-        x = self.bn2(x)
-        x = F.leaky_relu(x, negative_slope=0.4)
+        # x = self.bn2(x)
+        # x = F.leaky_relu(x, negative_slope=0.4)
 
         return x
 
@@ -83,9 +79,10 @@ class Decoder(nn.Module):
         self.bn2 = nn.BatchNorm2d(256)
         
         # dilated convolution blocks
-        self.convA2_1 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=2, dilation=2)
+        self.convA2_1 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=8, dilation=8)
         self.convA2_2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=4, dilation=4)
-        self.convA2_3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=8, dilation=8)
+        self.convA2_3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=2, dilation=2)
+        
 
         self.conv3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
         self.bn3 = nn.BatchNorm2d(256)
@@ -93,9 +90,9 @@ class Decoder(nn.Module):
         self.conv4a = nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1)
         self.conv5 = nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1)
         self.conv5a = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1) 
-        self.conv6 = nn.Conv2d(64, 3, kernel_size=5, stride=1, padding=2) 
+        self.conv6 = nn.Conv2d(64, 3, kernel_size=5, stride=1, padding=2)
 
-    
+
     def forward(self, x):
         x = self.conv1_1(x)
         x = self.bn1(x)
@@ -118,13 +115,12 @@ class Decoder(nn.Module):
         x = F.leaky_relu(x, negative_slope=0.4)
         x = self.conv4a(x)
         x = F.leaky_relu(x, negative_slope=0.4)
-        x = F.upsample(x, scale_factor=2, mode='nearest')
+        x = F.upsample(x, scale_factor=2, mode='bilinear', align_corners=False)
         x = self.conv5(x)
         x = F.leaky_relu(x, negative_slope=0.4)
         x = self.conv5a(x)
         x = F.leaky_relu(x, negative_slope=0.4)
-        x = F.upsample(x, scale_factor=2, mode='nearest')
+        x = F.upsample(x, scale_factor=2, mode='bilinear', align_corners=False)
         x = self.conv6(x)
-        x = F.leaky_relu(x, negative_slope=0.4)
         
         return x        

@@ -19,7 +19,7 @@ import warnings
 from detectron2.utils.logger import setup_logger
 from etaprogress.progress import ProgressBar
 from detectron2.checkpoint import DetectionCheckpointer
-import torchvision.models as models
+from loss import ReconLoss, VGGLoss
 
 
 warnings.filterwarnings("ignore")
@@ -116,16 +116,10 @@ def visualize(x,y):
 
 
 def un_normalize(inputs):
-    pixel_mean = torch.Tensor(cfg.MODEL.PIXEL_MEAN).to(device).view(3, 1, 1)
-    pixel_std = torch.Tensor(cfg.MODEL.PIXEL_STD).to(device).view(3, 1, 1)
-    un_normalizer = lambda x: (x + pixel_mean) * pixel_std
+    pixel_mean = torch.Tensor(cfg.MODEL.PIXEL_MEAN).to(device).view(3, 1, 1).cuda()
+    pixel_std = torch.Tensor([57.375, 57.120, 58.395]).view(3, 1, 1).cuda()
+    un_normalizer = lambda x: x * pixel_std + pixel_mean
     return un_normalizer(inputs)
-
-def normalize(inputs):
-    pixel_mean = torch.Tensor(cfg.MODEL.PIXEL_MEAN).to(device).view(3, 1, 1)
-    pixel_std = torch.Tensor(cfg.MODEL.PIXEL_STD).to(device).view(3, 1, 1)
-    normalizer = lambda x: (x - pixel_mean) / pixel_std
-    return normalizer(inputs)
 
 def vgg_normalize(inputs):
     pixel_mean = torch.tensor([0.485, 0.456, 0.406]).view(3,1,1).cuda()
@@ -133,42 +127,25 @@ def vgg_normalize(inputs):
     normalizer = lambda x: (x - pixel_mean) / pixel_std
     return normalizer(inputs)
 
-
-def get_features(image, layers=None):
-    if layers is None:
-        layers = {'0': 'conv1_1',
-                  '5': 'conv2_1',
-                  '10': 'conv3_1',
-                  '19': 'conv4_1',
-                  '28': 'conv5_1'
-                  }
-    features = {}
+def vgg_preprocess(image):
     image = torch.clamp(image, min=0., max = 255.) * torch.tensor(1./255)
     image = torch.stack([image[:,2,:,:],image[:,1,:,:],image[:,0,:,:]],1)
 
-    x = vgg_normalize(image)
-    for name, layer in enumerate(vgg.features):
-      x = layer(x)
-      if str(name) in layers:
-        features[layers[str(name)]] = x
-    
-    return features
+    image = vgg_normalize(image)
+    return image
 
-def s_loss(inputs, targets):
-    
-    l1_loss = nn.L1Loss()
-    style_loss = torch.tensor(0.).cuda()
-    hole_features = get_features(inputs)
-    recons_features = get_features(targets)
 
-    for layer in hole_features:
-        style_loss += l1_loss(hole_features[layer], recons_features[layer])
+def s_loss(targets, recons, masks):
+
+    targets = vgg_preprocess(targets)
+    recons = vgg_preprocess(recons)
+
+    style_loss = vgg_loss(recons, targets, masks)
     
     return style_loss
 
 
 def edit_loss(outputs, images, hole_images, masks):
-    loss = nn.L1Loss()
     inputs = torch.stack(images,0).cuda()
     hole_inputs = torch.stack(hole_images, 0)
     outputs = un_normalize(outputs)
@@ -179,19 +156,19 @@ def edit_loss(outputs, images, hole_images, masks):
     # visualize(inputs * hole_masks*torch.tensor(1./255),hole_inputs * masks*torch.tensor(1./255))
     # exit()
 
-    bg_loss =  loss(inputs * hole_masks, outputs * hole_masks)
+    bg_loss =  recon_loss(outputs, inputs, hole_masks)
 
     
-    hole_loss = s_loss(hole_inputs * masks, outputs * masks)
+    hole_loss = s_loss(hole_inputs, outputs, masks)
 
     alpha = torch.tensor(10., dtype=float)
     t_loss = bg_loss + alpha*hole_loss
 
-#     print('Style Loss: {}'.format(hole_loss))
-#     print('Simple Loss: {}'.format(bg_loss))
-#     print('Alpha: {}'.format(alpha))
-#     print('Total Loss: {}'.format(t_loss))
-#     print('----------------------')
+    # print('Style Loss: {}'.format(hole_loss))
+    # print('Simple Loss: {}'.format(bg_loss))
+    # print('Alpha: {}'.format(alpha))
+    # print('Total Loss: {}'.format(t_loss))
+    # print('----------------------')
 
     return t_loss
 
@@ -332,9 +309,7 @@ if __name__ == "__main__":
         
         editor.to(device)
         
-        vgg = models.vgg19(pretrained=True).cuda().eval()
-        for i, layer in enumerate(vgg.features):
-            if isinstance(layer, torch.nn.MaxPool2d):
-                vgg.features[i] = torch.nn.AvgPool2d(kernel_size=2, stride=2, padding=0)
+        vgg_loss = VGGLoss(masked=True)
+        recon_loss = ReconLoss(masked=True)
         
         train(model=editor,num_epochs=args.num_epochs, dataloader=coco_train_loader)
