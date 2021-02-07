@@ -58,7 +58,7 @@ class VGGLoss(nn.Module):
     def __init__(self, n_gpus=1, masked=False):
         super().__init__()
         self.masked = masked
-        self.l1_loss = nn.L1Loss()
+        self.l1_loss = nn.L1Loss(reduction='mean')
         self.vgg_head = VGG_head()
         # self.vgg_list = [Vgg16(requires_grad=False) for i in range(n_gpus)]
 
@@ -66,8 +66,8 @@ class VGGLoss(nn.Module):
         output_feature, target_feature = self.vgg_head(gen_imgs,gt_imgs)
         loss = (self.l1_loss(output_feature['relu1_2'], target_feature['relu1_2']) 
             + self.l1_loss(output_feature['relu2_2'], target_feature['relu2_2'])
-            + self.l1_loss(output_feature['relu3_4'], target_feature['relu3_4'])
-            + self.l1_loss(output_feature['relu4_4'], target_feature['relu4_4'])
+#             + self.l1_loss(output_feature['relu3_4'], target_feature['relu3_4'])
+#             + self.l1_loss(output_feature['relu4_4'], target_feature['relu4_4'])
         )
         return loss
 
@@ -86,7 +86,7 @@ class VGGLoss(nn.Module):
         return mean_image_loss
 
 class ReconLoss(nn.Module):
-    def __init__(self, reduction='sum', masked=False):
+    def __init__(self, reduction='mean', masked=False):
         super().__init__()
         self.loss_fn = nn.L1Loss(reduction=reduction)
         self.masked = masked
@@ -94,6 +94,6 @@ class ReconLoss(nn.Module):
     def forward(self, gen_imgs, gt_imgs, masks=None):
         N = gen_imgs.size(0)
         if self.masked:
-            return self.loss_fn(gen_imgs * masks, gt_imgs * masks) / torch.sum(masks)
+            return self.loss_fn(gen_imgs, gt_imgs)
         else:
             return self.loss_fn(gen_imgs, gt_imgs)

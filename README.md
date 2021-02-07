@@ -118,8 +118,14 @@ sh evaluate.sh
     - **Left**: Original Input
     - **Right**: Reconstruction
 
-<img src='visualizations/demo0.jpg' style="max-width:100%">
+<img src='visualizations/demo0.jpg' style="max-width:50%">
 
-<img src='visualizations/demo1.jpg' style="max-width:100%">
+<img src='visualizations/demo1.jpg' style="max-width:50%">
 
-<img src='visualizations/demo2.jpg' style="max-width:100%">
+<img src='visualizations/demo2.jpg' style="max-width:50%">
+
+<img src='visualizations/demo3.jpg' style="max-width:50%">
+
+<img src='visualizations/demo4.jpg' style="max-width:50%">
+
+<img src='visualizations/demo5.jpg' style="max-width:50%">

@@ -54,11 +54,10 @@ def get_parser():
 
 
 def un_normalize(inputs):
-    pixel_mean = torch.Tensor([103.530, 116.280, 123.675]).to(device).view(3, 1, 1)
-    pixel_std = torch.Tensor([1.0, 1.0, 1.0]).to(device).view(3, 1, 1)
-    un_normalizer = lambda x: (x + pixel_mean) * pixel_std
+    pixel_mean = torch.Tensor(cfg.MODEL.PIXEL_MEAN).to(device).view(3, 1, 1).cuda()
+    pixel_std = torch.Tensor([57.375, 57.120, 58.395]).view(3, 1, 1).cuda()
+    un_normalizer = lambda x: x * pixel_std + pixel_mean
     return un_normalizer(inputs)
-
 
 def demo(editor, args):
     

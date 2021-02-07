@@ -4,7 +4,6 @@ from __future__ import print_function
 from torch._C import device
 from modules.dataloader import get_loader
 import torch
-import torch.nn.functional as F
 from torch import nn
 import sys
 from adet.config import get_cfg
@@ -104,16 +103,37 @@ def get_parser():
     )
     return parser
 
-def visualize(x,y):
+def visualize(x,y,z):
     x = x[0].cpu() 
     x = x.permute(1, 2, 0).numpy()
     y = y[0].cpu() 
     y = y.permute(1, 2, 0).numpy()
-    f, (ax1,ax2) = plt.subplots(1,2)
+    z = z[0].cpu() 
+    z = z.permute(1, 2, 0).numpy()
+    f, (ax1,ax2,ax3) = plt.subplots(1,3)
+    x = x[:,:,::-1]
+    y = y[:,:,::-1]
+    z = z[:,:,::-1]
     ax1.imshow(x)
+    ax1.set_title("Original Image")
+    ax1.axis('off')
+
     ax2.imshow(y)
+    ax2.set_title("Masked Image")
+    ax2.axis('off')
+
+    ax3.imshow(z)
+    ax3.set_title("Reconstruction")
+    ax3.axis('off')
+
     f.savefig('visualizations/run.jpg')
 
+
+def normalize(inputs):
+    pixel_mean = torch.Tensor(cfg.MODEL.PIXEL_MEAN).to(device).view(3, 1, 1).cuda()
+    pixel_std = torch.Tensor([57.375, 57.120, 58.395]).view(3, 1, 1).cuda()
+    un_normalizer = lambda x: (x - pixel_mean) / pixel_std
+    return un_normalizer(inputs)
 
 def un_normalize(inputs):
     pixel_mean = torch.Tensor(cfg.MODEL.PIXEL_MEAN).to(device).view(3, 1, 1).cuda()
@@ -128,7 +148,7 @@ def vgg_normalize(inputs):
     return normalizer(inputs)
 
 def vgg_preprocess(image):
-    image = torch.clamp(image, min=0., max = 255.) * torch.tensor(1./255)
+    image = image * torch.tensor(1./255)
     image = torch.stack([image[:,2,:,:],image[:,1,:,:],image[:,0,:,:]],1)
 
     image = vgg_normalize(image)
@@ -153,22 +173,18 @@ def edit_loss(outputs, images, hole_images, masks):
 
     hole_masks = torch.tensor(1.) - masks
 
-    # visualize(inputs * hole_masks*torch.tensor(1./255),hole_inputs * masks*torch.tensor(1./255))
-    # exit()
-
-    bg_loss =  recon_loss(outputs, inputs, hole_masks)
+    bg_loss =  recon_loss(outputs, hole_inputs, hole_masks)
 
     
     hole_loss = s_loss(hole_inputs, outputs, masks)
 
-    alpha = torch.tensor(10., dtype=float)
+    alpha = torch.tensor(50., dtype=float)
     t_loss = bg_loss + alpha*hole_loss
 
-    # print('Style Loss: {}'.format(hole_loss))
-    # print('Simple Loss: {}'.format(bg_loss))
-    # print('Alpha: {}'.format(alpha))
-    # print('Total Loss: {}'.format(t_loss))
-    # print('----------------------')
+#     print('Style Loss: {}'.format(hole_loss))
+#     print('Simple Loss: {}'.format(bg_loss))
+#     print('Total Loss: {}'.format(t_loss))
+#     print('----------------------')
 
     return t_loss
 
@@ -201,6 +217,15 @@ def train(model, num_epochs, dataloader):
             optimizer.step()
 
             running_loss.append(loss.item())
+            
+            if i%30 == 0:
+                print('Loss: {}'.format(loss.item()))
+                inputs = torch.stack(inputs,0).cuda()
+                outputs = un_normalize(outputs)
+                hole_inputs = torch.stack(hole_images, 0)
+                masks = torch.stack(masks,0).cuda()
+                visualize(inputs*torch.tensor(1./255), hole_inputs*torch.tensor(1./255),torch.round(outputs.detach())*torch.tensor(1./255))
+            
             sys.stdout.flush()
         
         avg_loss = np.mean(running_loss)
@@ -301,7 +326,7 @@ if __name__ == "__main__":
                                         root=args.coco+'train2017', \
                                             json=args.coco+'annotations/instances_train2017.json', \
                                                 batch_size=args.batch_size, \
-                                                    shuffle=False, \
+                                                    shuffle=True, \
                                                         num_workers=0)
         
         if args.load:
