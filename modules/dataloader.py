@@ -41,7 +41,10 @@ class CocoDataset(data.Dataset):
                 b_boxes[i][j] = round(b_boxes[i][j])
 
         org = read_image(os.path.join(self.root, path), format="BGR")
+        inpainted_image = read_image(os.path.join('dataset/coco/train2017_inpainted/', path), format="BGR")
+
         image = torch.from_numpy(org.copy()).permute(2,0,1).float()
+        inpainted_image = torch.from_numpy(inpainted_image.copy()).permute(2,0,1).float()
 
         hole_image = torch.from_numpy(org.copy()).permute(2,0,1).float()
         mask = torch.zeros_like(hole_image)
@@ -52,11 +55,12 @@ class CocoDataset(data.Dataset):
         image = self.transform(image)
         hole_image = self.transform(hole_image)
         mask = self.transform(mask)
+        inpainted_image = self.transform(inpainted_image)
 
         if self.device is not None:
-            return image.to(self.device), hole_image.to(self.device), mask.to(self.device)
+            return image.to(self.device), hole_image.to(self.device), mask.to(self.device), inpainted_image.to(self.device)
         else:
-            return image, hole_image, mask
+            return image, hole_image, mask, inpainted_image
 
     def __len__(self):
         return len(self.ids)
@@ -76,12 +80,13 @@ def collate_fn(data):
         
     """
 
-    images, hole_images, masks = zip(*data)
+    images, hole_images, masks, inpainted_images = zip(*data)
     images = list(images)
     hole_images = list(hole_images)
     masks = list(masks)
+    inpainted_images = list(inpainted_images)
 
-    return images, hole_images, masks
+    return images, hole_images, masks, inpainted_images
     
 def get_loader(device, root, json, batch_size, shuffle, num_workers):
     """Returns torch.utils.data.DataLoader for custom coco dataset."""
