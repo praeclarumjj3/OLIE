@@ -18,7 +18,6 @@ import warnings
 from detectron2.utils.logger import setup_logger
 from etaprogress.progress import ProgressBar
 from detectron2.checkpoint import DetectionCheckpointer
-from loss import ReconLoss, VGGLoss
 from inpaint import Inpainter
 
 warnings.filterwarnings("ignore")
@@ -92,7 +91,7 @@ def get_parser():
     parser.add_argument(
         "--RECONS_PATH",
         help="Path of the saved reconstructor",
-        default='checkpoints/editor.pth',
+        default='checkpoints/editor_success.pth',
         type=str
     )
     parser.add_argument(
@@ -109,7 +108,7 @@ def get_parser():
     )
     return parser
 
-def visualize(x,y,z, w):
+def visualize(x,y,z,w,v):
     x = x[0].cpu() 
     x = x.permute(1, 2, 0).numpy()
     y = y[0].cpu() 
@@ -118,12 +117,15 @@ def visualize(x,y,z, w):
     z = z.permute(1, 2, 0).numpy()
     w = w[0].cpu() 
     w = w.permute(1, 2, 0).numpy()
+    v = v[0].cpu() 
+    v = v.permute(1, 2, 0).numpy()
 
-    f, (ax1,ax2,ax3,ax4) = plt.subplots(1,4)
+    f, (ax1,ax2,ax3,ax4,ax5) = plt.subplots(1,5)
     x = x[:,:,::-1]
     y = y[:,:,::-1]
     z = z[:,:,::-1]
     w = w[:,:,::-1]
+    v = v[:,:,::-1]
     
     ax1.imshow(x)
     ax1.set_title("Original Image")
@@ -136,10 +138,14 @@ def visualize(x,y,z, w):
     ax3.imshow(z)
     ax3.set_title("Reconstruction")
     ax3.axis('off')
-
+    
     ax4.imshow(w)
-    ax4.set_title("Final Inpainted")
+    ax4.set_title("Inpainted GT")
     ax4.axis('off')
+
+    ax5.imshow(v)
+    ax5.set_title("Final Inpainted")
+    ax5.axis('off')
 
     f.savefig('visualizations/inpaint_run.jpg')
 
@@ -190,27 +196,27 @@ def train(editor_model, inpaint_model, num_epochs, dataloader):
             # zero the parameter gradients
             optimizer.zero_grad()
 
-            # forward + backward + optimize
-            reconstruction = editor_model(originals)
+            with torch.no_grad():
+                reconstruction = editor_model(originals)
 
             reconstruction = un_normalize(reconstruction)
             reconstruction = torch.clamp(torch.round(reconstruction),min=0., max = 255.)
 
             originals = torch.stack(originals, dim=0).cuda()
 
-            mask = torch.where((reconstruction-originals) < -30., 255., 0.)
-            mask = torch.mean(mask,dim=1)
-            mask = torch.where(mask > 80., 1., 0.)
-            mask = mask.unsqueeze(1)    
+            masks = torch.where((reconstruction-originals) < -30., 255., 0.)
+            mask_s = torch.mean(masks,dim=1)
+            masks = torch.where(mask_s > 80., 1., 0.) 
+            mask_recons = torch.where(mask_s > 80., 255., 0.)
 
-            masks = torch.stack([mask,mask,mask],dim=1)
+            masks = torch.stack([masks,masks,masks],dim=1)
+            mask_recons = torch.stack([mask_recons,mask_recons,mask_recons],dim=1)
 
-            reconstruction = reconstruction
-            reconstruction = reconstruction + masks
+            reconstruction = reconstruction + mask_recons
 
             reconstruction = normalize(reconstruction)
 
-            outputs = inpaint_model(reconstruction, mask)
+            outputs = inpaint_model(reconstruction, masks)
 
             loss = inpaint_loss(outputs, inpainted_images)
             loss.backward()
@@ -222,8 +228,9 @@ def train(editor_model, inpaint_model, num_epochs, dataloader):
                 print('Loss: {}'.format(loss.item()))
                 reconstruction = un_normalize(reconstruction)
                 outputs = un_normalize(outputs)
+                inpainted_images = torch.stack(inpainted_images, dim=0)
                 hole_inputs = torch.stack(hole_images, 0)
-                visualize(originals*torch.tensor(1./255), hole_inputs*torch.tensor(1./255), reconstruction*torch.tensor(1./255),torch.round(outputs.detach())*torch.tensor(1./255))
+                visualize(originals*torch.tensor(1./255), hole_inputs*torch.tensor(1./255), reconstruction*torch.tensor(1./255), inpainted_images*torch.tensor(1./255), torch.round(outputs.detach())*torch.tensor(1./255))
             
             sys.stdout.flush()
         
@@ -235,12 +242,12 @@ def train(editor_model, inpaint_model, num_epochs, dataloader):
             best_loss = avg_loss
             best_epoch = j+1
             print('Model saved at Epoch: {}'.format(j+1))
-            torch.save(model.state_dict(),args.PATH)
+            torch.save(inpaint_model.state_dict(),args.PATH)
     logger.info("Finished Training with best loss: {} at Epoch: {}".format(best_loss, best_epoch))
     plt.plot(np.linspace(1, num_epochs, num_epochs).astype(int), epoch_loss)
     if not os.path.exists('losses/'):
             os.makedirs('losses/')
-    plt.savefig('losses/train_loss_{}.png'.format(args.lr))
+    plt.savefig('losses/train_loss.png'.format(args.lr))
 
 
 def eval(model, dataloader):
@@ -311,8 +318,10 @@ if __name__ == "__main__":
         editor = Editor(solo,reconstructor)
         editor.load_state_dict(torch.load(args.RECONS_PATH))
         editor.to(device)
+        editor.eval()
 
         inpainter = Inpainter(64)
+        inpainter.to(device)
 
         edit_params = sum(p.numel() for p in editor.parameters())
         inpaint_params = sum(p.numel() for p in inpainter.parameters())

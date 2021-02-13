@@ -49,7 +49,7 @@ class Inpainter(nn.Module):
 class Encoder(nn.Module):
     def __init__(self, hid_channels):
         super().__init__()
-        self.conv1 = nn.Conv2d(5, 16, kernel_size=3, stride=1, padding=1)
+        self.conv1 = nn.Conv2d(6, 16, kernel_size=3, stride=1, padding=1)
         self.bn1 = nn.BatchNorm2d(16)
         self.conv2 = nn.Conv2d(16, 64, kernel_size=3, stride=1, padding=1)
         self.bn2 = nn.BatchNorm2d(64)
@@ -79,25 +79,22 @@ class Encoder(nn.Module):
 class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
-        self.conv1_1 = nn.Conv2d(512, 256, kernel_size=3, stride=1, padding=1)
-        self.bn1 = nn.BatchNorm2d(256)
-        self.conv1_2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
-        self.bn2 = nn.BatchNorm2d(256)
+        self.conv1_1 = nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1)
+        self.bn1 = nn.BatchNorm2d(64)
+        self.conv1_2 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)
+        self.bn2 = nn.BatchNorm2d(64)
         
         # dilated convolution blocks
-        self.convA2_1 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=8, dilation=8)
-        self.convA2_2 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=4, dilation=4)
-        self.convA2_3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=2, dilation=2)
+        self.convA2_1 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=8, dilation=8)
+        self.convA2_2 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=4, dilation=4)
+        self.convA2_3 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=2, dilation=2)
         
 
-        self.conv3 = nn.Conv2d(256, 256, kernel_size=3, stride=1, padding=1)
-        self.bn3 = nn.BatchNorm2d(256)
-        self.conv4 = nn.Conv2d(256, 128, kernel_size=3, stride=1, padding=1) 
-        self.conv4a = nn.Conv2d(128, 128, kernel_size=3, stride=1, padding=1)
-        self.conv5 = nn.Conv2d(128, 64, kernel_size=3, stride=1, padding=1)
-        self.conv5a = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1) 
-        self.conv6 = nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=1)
-        self.conv7 = nn.Conv2d(32, 3, kernel_size=3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(64, 64, kernel_size=3, stride=1, padding=1)
+        self.bn3 = nn.BatchNorm2d(64)
+        self.conv4 = nn.Conv2d(64, 32, kernel_size=3, stride=1, padding=1) 
+        self.conv5 = nn.Conv2d(32, 16, kernel_size=3, stride=1, padding=1)
+        self.conv6 = nn.Conv2d(16, 3, kernel_size=3, stride=1, padding=1)
 
 
     def forward(self, x, recons, masks):
@@ -120,16 +117,10 @@ class Decoder(nn.Module):
         x = F.leaky_relu(x, negative_slope=0.4)
         x = self.conv4(x)
         x = F.leaky_relu(x, negative_slope=0.4)
-        x = self.conv4a(x)
-        x = F.leaky_relu(x, negative_slope=0.4)
         x = F.upsample(x, scale_factor=2, mode='bilinear', align_corners=False)
         x = self.conv5(x)
         x = F.leaky_relu(x, negative_slope=0.4)
-        x = self.conv5a(x)
-        x = F.leaky_relu(x, negative_slope=0.4)
         x = F.upsample(x, scale_factor=2, mode='bilinear', align_corners=False)
         x = self.conv6(x)
-        x = F.leaky_relu(x, negative_slope=0.4)
-        x = self.conv7(x)
         
         return x*masks + recons*(1-masks)
