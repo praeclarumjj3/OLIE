@@ -45,12 +45,9 @@ class Reconstructor(nn.Module):
         images = F.interpolate(imgs,(size,size))
         images = normalize(images)
         masks = F.tanh(masks)
-#         masks = masking(masks, 'multi', (0,12))
-#         masks = masking(masks, 'multi', (84,144))
-        # masks = torch.ones_like(masks) - masks
+#         masks = masking(masks, 'multi', (84,120))
         # masks = masks ** 2
         x = self.encoder(images,masks)
-        # images = F.interpolate(imgs,(size*4,size*4))
         x = self.decoder(x)
 
         return x

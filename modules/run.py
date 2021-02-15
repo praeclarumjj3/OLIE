@@ -171,7 +171,7 @@ def edit_loss(outputs, images, hole_images, masks):
     outputs = un_normalize(outputs)
     masks = torch.stack(masks,0).cuda()
 
-    bg_loss =  recon_loss(outputs, inputs*masks)
+    bg_loss =  recon_loss(outputs, inputs)
 
     
     style_loss = s_loss(outputs, inputs, masks)
