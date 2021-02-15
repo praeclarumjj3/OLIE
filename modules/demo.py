@@ -1,7 +1,6 @@
-# -*- coding: utf-8 -*-
 from torch._C import device
 import torch
-import networks
+from torch import nn
 from adet.config import get_cfg
 from modules.solov2 import SOLOv2
 from modules.reconstructor import Reconstructor
@@ -17,8 +16,7 @@ import torchvision.transforms as transforms
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.data.detection_utils import read_image
 from run import Editor
-import numpy as np
-import networks
+
 
 warnings.filterwarnings("ignore")
 
@@ -51,12 +49,6 @@ def get_parser():
         default='checkpoints/editor.pth',
         type=str
     )
-    parser.add_argument(
-        "--INPAINT",
-        help="Path of the saved inpainting model",
-        default='inpainted_models/model_near512.pth',
-        type=str
-    )
     return parser
 
 
@@ -86,8 +78,14 @@ def demo(editor, args):
         hole_img = torch.from_numpy(hole_image.copy()).permute(2,0,1).float()
         hole_img = transform(hole_img)
         
-        f, (ax1,ax2,ax3, ax4) = plt.subplots(1,4)
-        org = img
+        f, (ax1,ax2,ax3,ax4) = plt.subplots(1,4)
+        org = img * torch.tensor(1./255)
+        org = org.cpu().permute(1,2,0).numpy()
+        org = org[:,:,::-1]
+
+        ax1.imshow(org)
+        ax1.set_title("Image")
+        ax1.axis('off')
 
         batched_input = []
         batched_input.append(img)
@@ -102,51 +100,36 @@ def demo(editor, args):
         logger.info("Duration: {}".format(end_time-start_time))
 
         reconstruction = un_normalize(reconstruction)
-        reconstruction = torch.clamp(torch.round(reconstruction),min=0., max = 255.)
+        reconstruction = torch.clamp(torch.round(reconstruction.squeeze(0).cpu()),min=0., max = 255.)
 
-        mask = torch.where((reconstruction-org.cuda()) < -30., 1., 0.)
+        masked_image = reconstruction
+        masked_image = img - masked_image
+        masked_image = torch.clamp(torch.round(masked_image.cpu()),min=0., max = 255.)
+        
+
+        mask = torch.where((masked_image.cuda()) < 10., 1., 0.)
         mask = torch.mean(mask,dim=1)
-        mask = torch.where(mask > 0.7, 1., 0.)
-        mask = mask.unsqueeze(1)    
+        mask = torch.where(mask > 0.2, 1., 0.)   
 
         masks = torch.stack([mask,mask,mask],dim=1)
+        masked_image = masked_image * torch.tensor(1./255)
+        masked_image = masked_image + masks
+
+        in_image = transforms.ToPILImage('RGB')(masked_image)
+        in_mask = transforms.ToPILImage('L')(mask)
+
+
+        masked_image = masked_image.permute(1, 2, 0).numpy()
+        masked_image = masked_image[:,:,::-1]
+
         reconstruction = reconstruction * torch.tensor(1./255)
-        reconstruction = reconstruction + mask
-        reconstruction = (reconstruction-torch.tensor(0.5))/torch.tensor(0.5)
-
-        inpaint_model = getattr(networks, 'convnet').InpaintGenerator()
-        inpaint_model.load_state_dict(torch.load(args.INPAINT))
-        inpaint_model.to(device)
-
-        with torch.no_grad():
-            _, result = inpaint_model(reconstruction*mask, mask)
-            result = result*mask+reconstruction*(1-mask)
-            inpainted_image = result*0.5+0.5
-        
-        inpainted_image = inpainted_image.squeeze(0).cpu().permute(1, 2, 0).numpy()
-        mask = mask.squeeze(0).cpu().permute(1, 2, 0).numpy()
-        # inpainted_image = inpainted_image*mask + org*(1-mask)
-        np.clip(inpainted_image,0,1)
-        inpainted_image = inpainted_image[:,:,::-1].copy()
-        inpainted_image = np.clip(inpainted_image, 0, 1)
-
-
-        reconstruction = reconstruction*torch.tensor(0.5) + torch.tensor(0.5)
-        reconstruction = reconstruction.squeeze(0).cpu().permute(1, 2, 0).numpy()
+        reconstruction = reconstruction.permute(1, 2, 0).numpy()
         reconstruction = reconstruction[:,:,::-1]
         
         hole_org = hole_img * torch.tensor(1./255)
         hole_org = hole_org.cpu().permute(1,2,0).numpy()
         hole_org = hole_org[:,:,::-1]
 
-        org = img * torch.tensor(1./255)
-        org = org.cpu().permute(1,2,0).numpy()
-        org = org[:,:,::-1]
-
-        ax1.imshow(org)
-        ax1.set_title("Image")
-        ax1.axis('off')
-        
         ax2.imshow(hole_org)
         ax2.set_title("Hole Image")
         ax2.axis('off')
@@ -155,8 +138,8 @@ def demo(editor, args):
         ax3.set_title("Reconstruction")
         ax3.axis('off')
 
-        ax4.imshow(inpainted_image)
-        ax4.set_title("Final Result")
+        ax4.imshow(masked_image)
+        ax4.set_title("Image - Reconstruction")
         ax4.axis('off')
 
         f.savefig('visualizations/val_demo{}.jpg'.format(i+1))

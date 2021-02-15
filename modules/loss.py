@@ -86,14 +86,9 @@ class VGGLoss(nn.Module):
         return mean_image_loss
 
 class ReconLoss(nn.Module):
-    def __init__(self, reduction='mean', masked=False):
+    def __init__(self, reduction='mean'):
         super().__init__()
         self.loss_fn = nn.L1Loss(reduction=reduction)
-        self.masked = masked
         
-    def forward(self, gen_imgs, gt_imgs, masks=None):
-        N = gen_imgs.size(0)
-        if self.masked:
-            return self.loss_fn(gen_imgs, gt_imgs)
-        else:
-            return self.loss_fn(gen_imgs, gt_imgs)
+    def forward(self, gen_imgs, gt_imgs):
+        return self.loss_fn(gen_imgs, gt_imgs)
