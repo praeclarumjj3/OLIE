@@ -74,15 +74,12 @@ def demo(editor, args):
         img = torch.from_numpy(image.copy()).permute(2,0,1).float()
         img = transform(img)
         
-        hole_image = read_image('inputs/hole_image_val{}.jpg'.format(i+1), format="BGR")
-        hole_img = torch.from_numpy(hole_image.copy()).permute(2,0,1).float()
-        hole_img = transform(hole_img)
-        
-        f, (ax1,ax2,ax3,ax4) = plt.subplots(1,4)
+        f, (ax1,ax2,ax3) = plt.subplots(1,3,figsize=(12,4))
         org = img * torch.tensor(1./255)
         org = org.cpu().permute(1,2,0).numpy()
         org = org[:,:,::-1]
 
+        plt.rcParams.update({'font.size': 16})
         ax1.imshow(org)
         ax1.set_title("Image")
         ax1.axis('off')
@@ -94,53 +91,32 @@ def demo(editor, args):
         start_time = time.time()
         
         with torch.no_grad():
-            reconstruction = editor(batched_input)
+            reconstruction_1 = editor(batched_input)
 
-        end_time = time.time()
-        logger.info("Duration: {}".format(end_time-start_time))
+        reconstruction_1 = un_normalize(reconstruction_1)
+        reconstruction_1 = torch.clamp(torch.round(reconstruction_1.squeeze(0).cpu()),min=0., max = 255.)
 
-        reconstruction = un_normalize(reconstruction)
-        reconstruction = torch.clamp(torch.round(reconstruction.squeeze(0).cpu()),min=0., max = 255.)
-
-        masked_image = reconstruction
+        masked_image = reconstruction_1
         masked_image = img - masked_image
-        masked_image = torch.clamp(torch.round(masked_image.cpu()),min=0., max = 255.)
-        
-
-        mask = torch.where((masked_image.cuda()) < 10., 1., 0.)
-        mask = torch.mean(mask,dim=1)
-        mask = torch.where(mask > 0.2, 1., 0.)   
-
-        masks = torch.stack([mask,mask,mask],dim=1)
-        masked_image = masked_image * torch.tensor(1./255)
-        masked_image = masked_image + masks
-
-        in_image = transforms.ToPILImage('RGB')(masked_image)
-        in_mask = transforms.ToPILImage('L')(mask)
-
-
+        masked_image = torch.clamp(torch.round(masked_image.cpu()),min=0., max = 255.) * torch.tensor(1./255)
         masked_image = masked_image.permute(1, 2, 0).numpy()
         masked_image = masked_image[:,:,::-1]
 
-        reconstruction = reconstruction * torch.tensor(1./255)
-        reconstruction = reconstruction.permute(1, 2, 0).numpy()
-        reconstruction = reconstruction[:,:,::-1]
+        reconstruction_1 = reconstruction_1 * torch.tensor(1./255)
+        reconstruction_1 = reconstruction_1.permute(1, 2, 0).numpy()
+        reconstruction_1 = reconstruction_1[:,:,::-1]
+        end_time = time.time()
+        logger.info("Duration: {}".format(end_time-start_time))
         
-        hole_org = hole_img * torch.tensor(1./255)
-        hole_org = hole_org.cpu().permute(1,2,0).numpy()
-        hole_org = hole_org[:,:,::-1]
-
-        ax2.imshow(hole_org)
-        ax2.set_title("Hole Image")
+        plt.rcParams.update({'font.size': 16})
+        ax2.imshow(reconstruction_1)
+        ax2.set_title("Reconstruction")
         ax2.axis('off')
 
-        ax3.imshow(reconstruction)
-        ax3.set_title("Reconstruction")
+        plt.rcParams.update({'font.size': 16})
+        ax3.imshow(masked_image)
+        ax3.set_title("Image - Reconstruction")
         ax3.axis('off')
-
-        ax4.imshow(masked_image)
-        ax4.set_title("Image - Reconstruction")
-        ax4.axis('off')
 
         f.savefig('visualizations/val_demo{}.jpg'.format(i+1))
 
