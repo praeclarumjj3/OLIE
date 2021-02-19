@@ -59,6 +59,24 @@ def visualize(x,layer):
         axarr[r,c].axis('off')
     f.savefig('visualizations/{}.jpg'.format(layer))
 
+def visualize_image(image,x,layer):
+    plt.rcParams.update({'font.size': 3})
+    dim = int(x.shape[1])
+    x = x[0].cpu() 
+    f, axarr = plt.subplots(int(dim**0.5),int(dim**0.5),figsize=(16,16))
+    for j in range(x.shape[0]):
+        r = int(j/dim**0.5)
+        c = int(j%dim**0.5)
+        i = image.squeeze(0).cpu() * x[j]
+        i = torch.clamp(torch.round(i),min=0., max = 255.) * torch.tensor(1./255)
+        i = torch.where(i>0.5,1.,0.)
+        i = image.squeeze(0).cpu()*i
+        i = torch.clamp(torch.round(i),min=0., max = 255.) * torch.tensor(1./255)
+        i = i.permute(1, 2, 0).numpy()
+        axarr[r,c].imshow(i[:,:,:])
+        axarr[r,c].axis('off')
+    f.savefig('visualizations/{}.jpg'.format(layer))
+
 class Reconstructor(nn.Module):
 
     def __init__(self, in_channels):
@@ -72,13 +90,6 @@ class Reconstructor(nn.Module):
         images = F.interpolate(imgs,(size,size))
         images = normalize(images)
         masks = F.tanh(masks)
-#         masks = masking(masks, 'multi', (48,120))
-#         masks = masking_objects(masks,'multi',(36,132),50,30,60,50)
-#         visualize(masks,'x')
-#         masks = masking_objects(masks,'multi',(38,46),100,40,60,40) # didnt work
-        masks = masking_threshold(0.6,masks,'multi',(36,132),50,30,60,50)
-#         masks = masking_objects(masks,'single',78,50,30,60,50)
-#         masks = masks ** 2
         x = self.encoder(images,masks)
         x = self.decoder(x)
 

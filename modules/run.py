@@ -119,11 +119,11 @@ def visualize(x,y,z,i):
     ax1.axis('off')
 
     ax2.imshow(y)
-    ax2.set_title("Masked Image")
+    ax2.set_title("Reconstruction")
     ax2.axis('off')
 
     ax3.imshow(z)
-    ax3.set_title("Reconstruction")
+    ax3.set_title("Image - Reconstruction")
     ax3.axis('off')
 
     f.savefig('visualizations/runs/run_{}.jpg'.format(i))
@@ -165,9 +165,8 @@ def s_loss(targets, recons, masks):
     return style_loss
 
 
-def edit_loss(outputs, images, hole_images, masks):
+def edit_loss(outputs, images, masks):
     inputs = torch.stack(images,0).cuda()
-    # hole_inputs = torch.stack(hole_images, 0)
     outputs = un_normalize(outputs)
     masks = torch.stack(masks,0).cuda()
 
@@ -203,26 +202,25 @@ def train(model, num_epochs, dataloader):
             bar.numerator = i+1
             print(bar, end='\r')
 
-            inputs, hole_images, masks = data
+            inputs, _, masks = data
 
             # zero the parameter gradients
             optimizer.zero_grad()
 
             # forward + backward + optimize
             outputs = model(inputs)
-            loss = edit_loss(outputs, inputs, hole_images, masks)
+            loss = edit_loss(outputs, inputs, masks)
             loss.backward()
             optimizer.step()
 
             running_loss.append(loss.item())
             
-            if i%30 == 0:
+            if i%80 == 0:
                 print('Loss: {}'.format(loss.item()))
                 inputs = torch.stack(inputs,0).cuda()
                 outputs = un_normalize(outputs)
-                hole_inputs = torch.stack(hole_images, 0)
                 masks = torch.stack(masks,0).cuda()
-                visualize(inputs*torch.tensor(1./255), inputs*masks*torch.tensor(1./255),torch.round(outputs.detach())*torch.tensor(1./255),i//30)
+                visualize(inputs*torch.tensor(1./255),torch.round(outputs.detach())*torch.tensor(1./255),inputs*torch.tensor(1./255)-torch.round(outputs.detach())*torch.tensor(1./255),i//80)
             
             sys.stdout.flush()
         
