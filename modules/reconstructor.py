@@ -2,6 +2,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 import torch
 import matplotlib.pyplot as plt
+import random
 
 def masking(image, phase, index):
     if phase=="single":
@@ -59,23 +60,32 @@ def visualize(x,layer):
         axarr[r,c].axis('off')
     f.savefig('visualizations/{}.jpg'.format(layer))
 
-def visualize_image(image,x,layer):
-    plt.rcParams.update({'font.size': 3})
-    dim = int(x.shape[1])
-    x = x[0].cpu() 
-    f, axarr = plt.subplots(int(dim**0.5),int(dim**0.5),figsize=(16,16))
-    for j in range(x.shape[0]):
-        r = int(j/dim**0.5)
-        c = int(j%dim**0.5)
-        i = image.squeeze(0).cpu() * x[j]
-        i = torch.clamp(torch.round(i),min=0., max = 255.) * torch.tensor(1./255)
-        i = torch.where(i>0.5,1.,0.)
-        i = image.squeeze(0).cpu()*i
-        i = torch.clamp(torch.round(i),min=0., max = 255.) * torch.tensor(1./255)
-        i = i.permute(1, 2, 0).numpy()
-        axarr[r,c].imshow(i[:,:,:])
-        axarr[r,c].axis('off')
-    f.savefig('visualizations/{}.jpg'.format(layer))
+
+def mask_shuffle(image, index, phase):
+
+    masks_start = []
+    masks = []
+    image = image.squeeze(0)
+
+    for i in range(index[0]):
+        masks_start.append(image[i])
+
+    for i in range(index[0],index[1]):
+        masks.append(image[i])
+    
+    if phase == "reverse":
+        masks.reverse()
+    elif phase == "random":
+        random.shuffle(masks)
+
+    masks = masks_start + masks
+
+    for i in range(index[1],image.shape[0]):
+        masks.append(image[i])
+
+    masks = torch.stack(masks, dim=0)
+
+    return masks.unsqueeze(0)
 
 class Reconstructor(nn.Module):
 
