@@ -58,7 +58,7 @@ def un_normalize(inputs):
     un_normalizer = lambda x: x * pixel_std + pixel_mean
     return un_normalizer(inputs)
 
-def demo(editor, args):
+def demo_replacement(editor, args):
     
     transform = transforms.Compose([
         transforms.Resize((640,640))
@@ -71,6 +71,7 @@ def demo(editor, args):
         assert args.input, "The input path(s) was not found"
     for i, path in enumerate(args.input):
         image = read_image(path, format="BGR")
+
         img = torch.from_numpy(image.copy()).permute(2,0,1).float()
         img = transform(img)
         
@@ -91,25 +92,26 @@ def demo(editor, args):
         start_time = time.time()
         
         with torch.no_grad():
-            reconstruction_1 = editor(batched_input)
+           reconstruction = editor(batched_input)     
 
-        reconstruction_1 = un_normalize(reconstruction_1)
-        reconstruction_1 = torch.clamp(torch.round(reconstruction_1.squeeze(0).cpu()),min=0., max = 255.)
+        reconstruction = un_normalize(reconstruction)
+        reconstruction = torch.clamp(torch.round(reconstruction.squeeze(0).cpu()),min=0., max = 255.)
 
-        masked_image = reconstruction_1
+        masked_image = reconstruction
         masked_image = img - masked_image
         masked_image = torch.clamp(torch.round(masked_image.cpu()),min=0., max = 255.) * torch.tensor(1./255)
         masked_image = masked_image.permute(1, 2, 0).numpy()
         masked_image = masked_image[:,:,::-1]
 
-        reconstruction_1 = reconstruction_1 * torch.tensor(1./255)
-        reconstruction_1 = reconstruction_1.permute(1, 2, 0).numpy()
-        reconstruction_1 = reconstruction_1[:,:,::-1]
+        reconstruction = reconstruction * torch.tensor(1./255)
+        reconstruction = reconstruction.permute(1, 2, 0).numpy()
+        reconstruction = reconstruction[:,:,::-1]
+
         end_time = time.time()
         logger.info("Duration: {}".format(end_time-start_time))
         
         plt.rcParams.update({'font.size': 16})
-        ax2.imshow(reconstruction_1)
+        ax2.imshow(reconstruction)
         ax2.set_title("Reconstruction")
         ax2.axis('off')
 
@@ -119,6 +121,139 @@ def demo(editor, args):
         ax3.axis('off')
 
         f.savefig('visualizations/val_demo{}.jpg'.format(i+1))
+
+def tensor_to_list(maps):
+
+    masks = []
+    maps = maps.squeeze(0)
+
+    for i in range(maps.shape[0]):
+        masks.append(maps[i])
+
+    return masks
+
+def demo_replacement(editor, args):
+    
+    transform = transforms.Compose([
+        transforms.Resize((640,640))
+    ])
+    
+    if os.path.isdir(args.input[0]):
+        args.input = [os.path.join(args.input[0], fname) for fname in os.listdir(args.input[0])]
+    elif len(args.input) == 1:
+        args.input = glob.glob(os.path.expanduser(args.input[0]))
+        assert args.input, "The input path(s) was not found"
+    for i, path in enumerate(args.input):
+        image = read_image(args.input[0], format="BGR")
+        image1 = read_image(args.input[1], format="BGR")
+
+        img = torch.from_numpy(image.copy()).permute(2,0,1).float()
+        img = transform(img)
+
+        img1 = torch.from_numpy(image1.copy()).permute(2,0,1).float()
+        img1 = transform(img1)
+        
+        f, (ax1,ax2,ax3) = plt.subplots(1,3,figsize=(12,4))
+        org = img * torch.tensor(1./255)
+        org = org.cpu().permute(1,2,0).numpy()
+        org = org[:,:,::-1]
+
+        f1, (ax11,ax21,ax31) = plt.subplots(1,3,figsize=(12,4))
+        org1 = img1 * torch.tensor(1./255)
+        org1 = org1.cpu().permute(1,2,0).numpy()
+        org1 = org1[:,:,::-1]
+
+        plt.rcParams.update({'font.size': 16})
+        ax1.imshow(org)
+        ax1.set_title("Image")
+        ax1.axis('off')
+
+        plt.rcParams.update({'font.size': 16})
+        ax11.imshow(org1)
+        ax11.set_title("Image")
+        ax11.axis('off')
+
+        batched_input = []
+        batched_input.append(img)
+
+        batched_input1 = []
+        batched_input1.append(img1)
+
+        logger.info("Starting Visualization")
+        start_time = time.time()
+        
+        with torch.no_grad():
+            masks, ins = editor.solo(batched_input)
+            masks1, ins1 = editor.solo(batched_input1)
+
+            maps = tensor_to_list(masks)
+            maps1 = tensor_to_list(masks1)
+
+            maps_in = maps[0:72] + maps1[72:144]
+            maps_in1 = maps1[0:72] + maps[72:144]
+
+            maps_in = torch.stack(maps_in,dim=0)
+            maps_in1 = torch.stack(maps_in1,dim=0)
+
+            maps_in = maps_in.unsqueeze(0)
+            maps_in1 = maps_in1.unsqueeze(0)
+
+            reconstruction = editor.reconstructor(maps_in, ins)
+            reconstruction1 = editor.reconstructor(maps_in1, ins1)            
+
+        reconstruction = un_normalize(reconstruction)
+        reconstruction = torch.clamp(torch.round(reconstruction.squeeze(0).cpu()),min=0., max = 255.)
+
+        reconstruction1 = un_normalize(reconstruction1)
+        reconstruction1 = torch.clamp(torch.round(reconstruction1.squeeze(0).cpu()),min=0., max = 255.)
+
+        masked_image = reconstruction
+        masked_image = img - masked_image
+        masked_image = torch.clamp(torch.round(masked_image.cpu()),min=0., max = 255.) * torch.tensor(1./255)
+        masked_image = masked_image.permute(1, 2, 0).numpy()
+        masked_image = masked_image[:,:,::-1]
+
+        masked_image1 = reconstruction1
+        masked_image1 = img1 - masked_image1
+        masked_image1 = torch.clamp(torch.round(masked_image1.cpu()),min=0., max = 255.) * torch.tensor(1./255)
+        masked_image1 = masked_image1.permute(1, 2, 0).numpy()
+        masked_image1 = masked_image1[:,:,::-1]
+
+        reconstruction = reconstruction * torch.tensor(1./255)
+        reconstruction = reconstruction.permute(1, 2, 0).numpy()
+        reconstruction = reconstruction[:,:,::-1]
+
+        reconstruction1 = reconstruction1 * torch.tensor(1./255)
+        reconstruction1 = reconstruction1.permute(1, 2, 0).numpy()
+        reconstruction1 = reconstruction1[:,:,::-1]
+        
+        end_time = time.time()
+        logger.info("Duration: {}".format(end_time-start_time))
+        
+        plt.rcParams.update({'font.size': 16})
+        ax2.imshow(reconstruction)
+        ax2.set_title("Reconstruction")
+        ax2.axis('off')
+
+        plt.rcParams.update({'font.size': 16})
+        ax21.imshow(reconstruction1)
+        ax21.set_title("Reconstruction")
+        ax21.axis('off')
+
+        plt.rcParams.update({'font.size': 16})
+        ax3.imshow(masked_image)
+        ax3.set_title("Image - Reconstruction")
+        ax3.axis('off')
+
+        plt.rcParams.update({'font.size': 16})
+        ax31.imshow(masked_image1)
+        ax31.set_title("Image - Reconstruction")
+        ax31.axis('off')
+
+        f.savefig('visualizations/val_demo{}.jpg'.format(i+1))
+        f1.savefig('visualizations/val_demo{}.jpg'.format(i+2))
+
+        exit()
 
 if __name__ == "__main__":
     logger = setup_logger()
