@@ -58,7 +58,7 @@ def un_normalize(inputs):
     un_normalizer = lambda x: x * pixel_std + pixel_mean
     return un_normalizer(inputs)
 
-def demo_replacement(editor, args):
+def demo(editor, args):
     
     transform = transforms.Compose([
         transforms.Resize((640,640))

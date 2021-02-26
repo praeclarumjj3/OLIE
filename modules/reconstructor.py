@@ -53,13 +53,12 @@ def visualize(x,layer):
     x = x[0].cpu() 
     x = x.permute(1, 2, 0).numpy()
     f, axarr = plt.subplots(int(dim**0.5),int(dim**0.5),figsize=(16,16))
-    for j in range(x.shape[2]):
-        r = int(j/dim**0.5)
-        c = int(j%dim**0.5)
+    for j in range(int(dim**0.5)*int(dim**0.5)):
+        r = int(j/int(dim**0.5))
+        c = int(j%int(dim**0.5))
         axarr[r,c].imshow(x[:,:,j])
         axarr[r,c].axis('off')
     f.savefig('visualizations/{}.jpg'.format(layer))
-
 
 def mask_shuffle(image, index, phase):
 
