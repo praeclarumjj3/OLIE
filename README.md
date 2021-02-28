@@ -114,6 +114,8 @@ sh evaluate.sh
 
 ### Results
 
+- A detailed report using the current setting can be found at this [link](https://docs.google.com/document/d/1k07kinbEosb4JJfTVJ2SAkMdjA5q1ibu8GQiGAev-kw/edit?usp=sharing).
+
 - The reconstructions produced are very similar to the input images.
     - **Left**: Original Input
     - **Right**: Reconstruction
