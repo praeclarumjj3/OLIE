@@ -4,6 +4,7 @@ import torch
 import matplotlib.pyplot as plt
 import random
 import numpy as np
+from torch.nn.modules import activation
 
 def masking(image, phase, index):
     if phase=="single":
@@ -115,14 +116,16 @@ class GatedConv2dWithActivation(nn.Module):
         self.conv2d = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias)
         self.mask_conv2d = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias)
         self.batch_norm2d =nn.BatchNorm2d(out_channels)
-        self.sigmoid = nn.Sigmoid()
    
     def forward(self, input):
 
         x = self.conv2d(input)
         mask = self.mask_conv2d(input)
 
-        x = self.activation(x) * self.sigmoid(mask)
+        if self.activation is None:
+            x = x * F.sigmoid(mask)
+        else:
+            x = self.activation(x) * F.sigmoid(mask)
 
         if self.batch_norm:
             return self.batch_norm2d(x)
@@ -174,7 +177,7 @@ class Encoder(nn.Module):
         self.dil_conv4D = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, dilation=16, padding=16)
         self.dil_conv4E = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
 
-        self.conv5 = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1),
+        self.conv5 = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
         
     def forward(self, x, maps):
 
@@ -222,7 +225,7 @@ class Decoder(nn.Module):
         
         #upsample
         self.conv2 = GatedDeConv2dWithActivation(2, 2*self.cnum, self.cnum, 3, 1, padding=1)
-        self.conv2A = GatedConv2dWithActivation(self.cnum, self.cnum//2, 3, 1, padding=1),
+        self.conv2A = GatedConv2dWithActivation(self.cnum, self.cnum//2, 3, 1, padding=1)
         
         self.conv3 = GatedConv2dWithActivation(self.cnum//2, 3, 3, 1, padding=1, activation=None)
 
@@ -232,8 +235,12 @@ class Decoder(nn.Module):
         feats = self.conv1(feats)
         feats = self.conv1A(feats)
 
+        feats = F.upsample(input=feats, scale_factor=2, mode='bilinear')
+
         feats = self.conv2(feats)
         feats = self.conv2A(feats)
+
+        feats = F.upsample(input=feats, scale_factor=2, mode='bilinear')
 
         feats = self.conv3(feats)
         
