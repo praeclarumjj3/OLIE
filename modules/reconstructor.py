@@ -110,7 +110,7 @@ class Reconstructor(nn.Module):
 
 class GatedConv2dWithActivation(nn.Module):
 
-    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True,batch_norm=True, activation=torch.nn.LeakyReLU(0.2, inplace=True)):
+    def __init__(self, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True,batch_norm=True, activation=torch.nn.LeakyReLU(0.4, inplace=True)):
         super(GatedConv2dWithActivation, self).__init__()
         
         self.batch_norm = batch_norm
@@ -136,7 +136,7 @@ class GatedConv2dWithActivation(nn.Module):
 
 class GatedDeConv2dWithActivation(nn.Module):
     
-    def __init__(self, scale_factor, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, batch_norm=True,activation=torch.nn.LeakyReLU(0.2, inplace=True)):
+    def __init__(self, scale_factor, in_channels, out_channels, kernel_size, stride=1, padding=0, dilation=1, groups=1, bias=True, batch_norm=True,activation=torch.nn.LeakyReLU(0.4, inplace=True)):
         super(GatedDeConv2dWithActivation, self).__init__()
         
         self.conv2d = GatedConv2dWithActivation(in_channels, out_channels, kernel_size, stride, padding, dilation, groups, bias, batch_norm, activation)
@@ -157,7 +157,7 @@ class Encoder(nn.Module):
 
         self.chan_conv = nn.Conv2d(144, 32, kernel_size=1, stride=1)
 
-        self.cnum = 64
+        self.cnum = 128
 
         self.pool = nn.MaxPool2d(kernel_size=2,stride=2)
 
@@ -175,9 +175,7 @@ class Encoder(nn.Module):
         # atrous convolution
         self.dil_conv4A = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, dilation=2, padding=2)
         self.dil_conv4B = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, dilation=4, padding=4)
-        self.dil_conv4C = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, dilation=8, padding=8)
-        self.dil_conv4D = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, dilation=16, padding=16)
-        self.conv4E = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
+        self.conv4D = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
 
         self.conv5 = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
         
@@ -207,9 +205,7 @@ class Encoder(nn.Module):
 
         feats = self.dil_conv4A(feats)
         feats = self.dil_conv4B(feats)
-        feats = self.dil_conv4C(feats)
-        feats = self.dil_conv4D(feats)
-        feats = self.conv4E(feats)
+        feats = self.conv4D(feats)
 
         feats = self.conv5(feats)
 
@@ -219,7 +215,7 @@ class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
 
-        self.cnum = 64
+        self.cnum = 128
 
         # upsample
         self.conv1 = GatedDeConv2dWithActivation(2, 4*self.cnum, 2*self.cnum, 3, 1, padding=1)
@@ -287,8 +283,6 @@ class RefineEncoder(nn.Module):
         # atrous convolution
         self.dil_conv4A = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, dilation=2, padding=2)
         self.dil_conv4B = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, dilation=4, padding=4)
-        self.dil_conv4C = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, dilation=8, padding=8)
-        self.dil_conv4D = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, dilation=16, padding=16)
         self.conv4E = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
     
     def forward(self, feats):
@@ -308,8 +302,6 @@ class RefineEncoder(nn.Module):
 
         feats = self.dil_conv4A(feats)
         feats = self.dil_conv4B(feats)
-        feats = self.dil_conv4C(feats)
-        feats = self.dil_conv4D(feats)
         feats = self.conv4E(feats)
 
         return feats
@@ -318,7 +310,7 @@ class RefineDecoder(nn.Module):
     def __init__(self):
         super(RefineDecoder, self).__init__()
 
-        self.cnum = 64
+        self.cnum = 32
 
         # upsample
         self.conv1 = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
