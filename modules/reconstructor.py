@@ -95,6 +95,7 @@ class Reconstructor(nn.Module):
 
         self.encoder = Encoder(in_channels)
         self.decoder = Decoder()
+        self.refiner = Refiner()
 
     def forward(self, masks, imgs):
         size = masks.shape[2]
@@ -103,6 +104,7 @@ class Reconstructor(nn.Module):
         masks = F.tanh(masks)
         x = self.encoder(images,masks)
         x = self.decoder(x)
+        x = self.refiner(x)
 
         return x
 
@@ -160,22 +162,22 @@ class Encoder(nn.Module):
         self.pool = nn.MaxPool2d(kernel_size=2,stride=2)
 
         self.gated_conv1 = GatedConv2dWithActivation(in_channels=32, out_channels=self.cnum, kernel_size=5, padding=2)
-
+        self.gated_conv1A = GatedConv2dWithActivation(self.cnum, 2*self.cnum, 3, 1, padding=1)
         # downsample
-        self.gated_conv2A = GatedConv2dWithActivation(self.cnum, 2*self.cnum, 3, 1, padding=1)
-        self.gated_conv2B = GatedConv2dWithActivation(2*self.cnum, 2*self.cnum, 3, 1, padding=1)
         
+        self.gated_conv2 = GatedConv2dWithActivation(2*self.cnum, 2*self.cnum, 3, 1, padding=1)
+        self.gated_conv2A = GatedConv2dWithActivation(2*self.cnum, 4*self.cnum, 3, 1, padding=1)
         #downsample
-        self.gated_conv3A = GatedConv2dWithActivation(2*self.cnum, 4*self.cnum, 3, 1, padding=1)
-        self.gated_conv3B = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
-        self.gated_conv3C = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
+
+        self.gated_conv3 = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
+        self.gated_conv3A = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
         
         # atrous convolution
         self.dil_conv4A = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, dilation=2, padding=2)
         self.dil_conv4B = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, dilation=4, padding=4)
         self.dil_conv4C = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, dilation=8, padding=8)
         self.dil_conv4D = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, dilation=16, padding=16)
-        self.dil_conv4E = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
+        self.conv4E = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
 
         self.conv5 = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
         
@@ -193,21 +195,21 @@ class Encoder(nn.Module):
         ins = self.chan_conv(ins)
 
         feats = self.gated_conv1(ins)
+        feats = self.gated_conv1A(feats)
         feats = self.pool(feats)
         
+        feats = self.gated_conv2(feats)
         feats = self.gated_conv2A(feats)
-        feats = self.gated_conv2B(feats)
         feats = self.pool(feats)
         
+        feats = self.gated_conv3(feats)
         feats = self.gated_conv3A(feats)
-        feats = self.gated_conv3B(feats)
-        feats = self.gated_conv3C(feats)
 
         feats = self.dil_conv4A(feats)
         feats = self.dil_conv4B(feats)
         feats = self.dil_conv4C(feats)
         feats = self.dil_conv4D(feats)
-        feats = self.dil_conv4E(feats)
+        feats = self.conv4E(feats)
 
         feats = self.conv5(feats)
 
@@ -241,6 +243,105 @@ class Decoder(nn.Module):
         feats = self.conv2A(feats)
 
         feats = F.upsample(input=feats, scale_factor=2, mode='bilinear')
+
+        feats = self.conv3(feats)
+        
+        return feats
+
+
+class Refiner(nn.Module):
+    def __init__(self):
+        super(Refiner, self).__init__()
+
+        self.encoder = RefineEncoder()
+        self.decoder = RefineDecoder()
+
+    def forward(self, reconstruction):
+
+        x = self.encoder(reconstruction)
+        x = self.decoder(x)
+
+        return x
+
+
+class RefineEncoder(nn.Module):
+    def __init__(self):
+        super(RefineEncoder, self).__init__()
+
+        self.cnum = 32
+
+        self.pool = nn.MaxPool2d(kernel_size=2,stride=2)
+
+        self.gated_conv1 = GatedConv2dWithActivation(in_channels=3, out_channels=self.cnum, kernel_size=5, padding=2)
+        self.gated_conv1A = GatedConv2dWithActivation(self.cnum, 2*self.cnum, 3, 1, padding=1)
+        # downsample
+        
+        self.gated_conv2 = GatedConv2dWithActivation(2*self.cnum, 2*self.cnum, 3, 1, padding=1)
+        self.gated_conv2A = GatedConv2dWithActivation(2*self.cnum, 4*self.cnum, 3, 1, padding=1)
+        #downsample
+
+        self.gated_conv3 = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
+        self.gated_conv3A = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
+        self.gated_conv3B = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
+        
+        # atrous convolution
+        self.dil_conv4A = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, dilation=2, padding=2)
+        self.dil_conv4B = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, dilation=4, padding=4)
+        self.dil_conv4C = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, dilation=8, padding=8)
+        self.dil_conv4D = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, dilation=16, padding=16)
+        self.conv4E = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
+    
+    def forward(self, feats):
+
+        # refine-encoder
+        feats = self.gated_conv1(feats)
+        feats = self.gated_conv1A(feats)
+        feats = self.pool(feats)
+        
+        feats = self.gated_conv2(feats)
+        feats = self.gated_conv2A(feats)
+        feats = self.pool(feats)
+        
+        feats = self.gated_conv3(feats)
+        feats = self.gated_conv3A(feats)
+        feats = self.gated_conv3B(feats)
+
+        feats = self.dil_conv4A(feats)
+        feats = self.dil_conv4B(feats)
+        feats = self.dil_conv4C(feats)
+        feats = self.dil_conv4D(feats)
+        feats = self.conv4E(feats)
+
+        return feats
+
+class RefineDecoder(nn.Module):
+    def __init__(self):
+        super(RefineDecoder, self).__init__()
+
+        self.cnum = 64
+
+        # upsample
+        self.conv1 = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
+        self.conv1A = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
+        self.conv1B = GatedDeConv2dWithActivation(2, 4*self.cnum, 2*self.cnum, 3, 1, padding=1)
+        self.conv1C = GatedConv2dWithActivation(2*self.cnum, 2*self.cnum, 3, 1, padding=1)
+        
+        #upsample
+        self.conv2 = GatedDeConv2dWithActivation(2, 2*self.cnum, self.cnum, 3, 1, padding=1)
+        self.conv2A = GatedConv2dWithActivation(self.cnum, self.cnum//2, 3, 1, padding=1)
+        
+        self.conv3 = GatedConv2dWithActivation(self.cnum//2, 3, 3, 1, padding=1, activation=None)
+    
+    def forward(self, feats):
+
+        # refine-decoder
+        feats = self.conv1(feats)
+        feats = self.conv1A(feats)
+        feats = self.conv1B(feats)
+        feats = self.conv1C(feats)
+
+        feats = self.conv2(feats)
+        feats = self.conv2A(feats)
 
         feats = self.conv3(feats)
         
