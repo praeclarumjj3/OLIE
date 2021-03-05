@@ -45,27 +45,26 @@ class GatedEncoder(nn.Module):
         super().__init__()
         self.conv1 = nn.Conv2d(3, 72, kernel_size=3, stride=1, padding=1)
         self.bn1 = nn.BatchNorm2d(72)
-        self.conv2 = nn.Conv2d(72, 144, kernel_size=3, stride=1, padding=1)
-        self.bn2 = nn.BatchNorm2d(144)
+        self.conv2 = nn.Conv2d(72, in_channels, kernel_size=3, stride=1, padding=1)
+        self.bn2 = nn.BatchNorm2d(in_channels)
 
-        self.chan_conv = nn.Conv2d(144, 32, kernel_size=1, stride=1)
+        self.chan_conv = nn.Conv2d(in_channels, 32, kernel_size=1, stride=1)
 
         self.cnum = 128
 
-        self.pool = nn.MaxPool2d(kernel_size=2,stride=2)
-
         self.gated_conv1 = GatedConv2dWithActivation(in_channels=32, out_channels=self.cnum, kernel_size=5, padding=2)
-        self.gated_conv1A = GatedConv2dWithActivation(self.cnum, 2*self.cnum, 3, 1, padding=1)
-        # downsample
+        # self.gated_conv1A = GatedConv2dWithActivation(self.cnum, 2*self.cnum, 3, 1, padding=1)
+        self.gated_conv1A = nn.Conv2d(self.cnum, 2*self.cnum, 3, 1, padding=1)
         
         self.gated_conv2 = GatedConv2dWithActivation(2*self.cnum, 2*self.cnum, 3, 1, padding=1)
-        self.gated_conv2A = GatedConv2dWithActivation(2*self.cnum, 4*self.cnum, 3, 1, padding=1)
-        #downsample
+        # self.gated_conv2A = GatedConv2dWithActivation(2*self.cnum, 4*self.cnum, 3, 1, padding=1)
+        self.gated_conv2A = nn.Conv2d(2*self.cnum, 4*self.cnum, 3, 1, padding=1)
 
         self.gated_conv3 = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
-        self.gated_conv3A = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
+        # self.gated_conv3A = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
+        self.gated_conv3A = nn.Conv2d(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
 
-        self.conv5 = GatedConv2dWithActivation(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
+        self.conv5 = nn.Conv2d(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
         
     def forward(self, x, maps):
 
@@ -82,16 +81,18 @@ class GatedEncoder(nn.Module):
 
         feats = self.gated_conv1(ins)
         feats = self.gated_conv1A(feats)
-        feats = self.pool(feats)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
         
         feats = self.gated_conv2(feats)
         feats = self.gated_conv2A(feats)
-        feats = self.pool(feats)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
         
         feats = self.gated_conv3(feats)
         feats = self.gated_conv3A(feats)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
 
         feats = self.conv5(feats)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
 
         return feats
 
@@ -102,27 +103,29 @@ class GatedDecoder(nn.Module):
         self.cnum = 128
 
         # upsample
-        self.conv1 = GatedDeConv2dWithActivation(2, 4*self.cnum, 2*self.cnum, 3, 1, padding=1)
+        self.conv1 = nn.Conv2d(4*self.cnum, 2*self.cnum, 3, 1, padding=1)
+        # self.conv1 = GatedDeConv2dWithActivation(2, 4*self.cnum, 2*self.cnum, 3, 1, padding=1)
         self.conv1A = GatedConv2dWithActivation(2*self.cnum, 2*self.cnum, 3, 1, padding=1)
         
         #upsample
-        self.conv2 = GatedDeConv2dWithActivation(2, 2*self.cnum, self.cnum, 3, 1, padding=1)
+        self.conv2 = nn.Conv2d(2*self.cnum, self.cnum, 3, 1, padding=1)
+        # self.conv2 = GatedDeConv2dWithActivation(2, 2*self.cnum, self.cnum, 3, 1, padding=1)
         self.conv2A = GatedConv2dWithActivation(self.cnum, self.cnum//2, 3, 1, padding=1)
         
-        self.conv3 = GatedConv2dWithActivation(self.cnum//2, 3, 3, 1, padding=1, activation=None)
+        self.conv3 = nn.Conv2d(self.cnum//2, 3, 3, 1, padding=1)
 
 
     def forward(self, feats):
        
         feats = self.conv1(feats)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
+        feats = F.interpolate(feats, scale_factor=2)
         feats = self.conv1A(feats)
 
-        feats = F.upsample(input=feats, scale_factor=2, mode='bilinear')
-
         feats = self.conv2(feats)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
+        feats = F.interpolate(feats, scale_factor=2)
         feats = self.conv2A(feats)
-
-        feats = F.upsample(input=feats, scale_factor=2, mode='bilinear')
 
         feats = self.conv3(feats)
         

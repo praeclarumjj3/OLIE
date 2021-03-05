@@ -3,7 +3,7 @@ import torch.nn.functional as F
 import torch
 import matplotlib.pyplot as plt
 import random
-from gated_modules import Refiner
+from gated_modules import Refiner, GatedEncoder, GatedDecoder 
 
 def masking(image, phase, index):
     if phase=="single":
@@ -110,11 +110,23 @@ class Encoder(nn.Module):
         super().__init__()
         self.conv1 = nn.Conv2d(3, 72, kernel_size=3, stride=1, padding=1)
         self.bn1 = nn.BatchNorm2d(72)
-        self.conv2 = nn.Conv2d(72, 144, kernel_size=3, stride=1, padding=1)
-        self.bn2 = nn.BatchNorm2d(144)
+        self.conv2 = nn.Conv2d(72, in_channels, kernel_size=3, stride=1, padding=1)
+        self.bn2 = nn.BatchNorm2d(in_channels)
 
-        self.mask_conv1 = nn.Conv2d(in_channels,256,kernel_size=1,stride=1)
-        self.mask_conv2 = nn.Conv2d(256,512,kernel_size=1,stride=1)
+        self.chan_conv = nn.Conv2d(in_channels, 32, kernel_size=3, stride=1)
+        
+        self.cnum = 64
+
+        self.enc_conv1 = nn.Conv2d(in_channels,self.cnum,kernel_size=3,stride=1,padding=1)
+        self.enc_conv1A = nn.Conv2d(self.cnum, 2*self.cnum, 3, 1, padding=1)
+
+        self.enc_conv2 = nn.Conv2d(2*self.cnum, 2*self.cnum, 3, 1, padding=1)
+        self.enc_conv2A = nn.Conv2d(2*self.cnum, 4*self.cnum, 3, 1, padding=1)
+
+        self.enc_conv3 = nn.Conv2d(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
+        self.enc_conv3A = nn.Conv2d(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
+
+        self.conv5 = nn.Conv2d(4*self.cnum, 4*self.cnum, 3, 1, padding=1)
         
     def forward(self, x, maps):
 
@@ -127,32 +139,60 @@ class Encoder(nn.Module):
 
         ins = maps*x
 
-        masks = self.mask_conv1(ins)
-        masks = F.leaky_relu(masks, negative_slope=0.4)
-        masks = self.mask_conv2(masks)
-        masks = F.leaky_relu(masks, negative_slope=0.4)
+        ins = self.chan_conv(ins)
 
-        return masks
+        feats = self.enc_conv1(ins)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
+        feats = self.enc_conv1A(feats)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
+        
+        feats = self.enc_conv2(feats)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
+        feats = self.enc_conv2A(feats)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
+        
+        feats = self.enc_conv3(feats)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
+        feats = self.enc_conv3A(feats)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
+
+        feats = self.conv5(feats)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
+
+        return feats
 
 class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
         
-        self.mask_conv1 = nn.Conv2d(512,256,kernel_size=1,stride=1)
-        self.mask_conv2 = nn.Conv2d(256,64,kernel_size=1,stride=1)
-        self.mask_conv3 = nn.Conv2d(64,32,kernel_size=1,stride=1)
-        self.mask_conv4 = nn.Conv2d(32,3,kernel_size=1,stride=1)
+        self.cnum = 64
 
-
-    def forward(self, masks):
-       
-        masks = self.mask_conv1(masks)
-        masks = F.leaky_relu(masks, negative_slope=0.4)
-        masks = self.mask_conv2(masks)
-        masks = F.leaky_relu(masks, negative_slope=0.4)
-        masks = F.upsample(masks, scale_factor=4, mode='bilinear', align_corners=False)
-        masks = self.mask_conv3(masks)
-        masks = F.leaky_relu(masks, negative_slope=0.4)
-        masks = self.mask_conv4(masks)
+        # upsample
+        self.conv1 = nn.Conv2d(4*self.cnum, 2*self.cnum, 3, 1, padding=1)
+        self.conv1A = nn.Conv2d(2*self.cnum, 2*self.cnum, 3, 1, padding=1)
         
-        return masks
+        #upsample
+        self.conv2 = nn.Conv2d(2*self.cnum, self.cnum, 3, 1, padding=1)
+        self.conv2A = nn.Conv2d(self.cnum, self.cnum//2, 3, 1, padding=1)
+        
+        self.conv3 = nn.Conv2d(self.cnum//2, 3, 3, 1, padding=1, activation=None)
+
+
+    def forward(self, feats):
+       
+        feats = self.conv1(feats)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
+        feats = F.interpolate(feats, scale_factor=2)
+        feats = self.conv1A(feats)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
+
+        feats = self.conv2(feats)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
+        feats = F.interpolate(feats, scale_factor=2)
+        feats = self.conv2A(feats)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
+
+        feats = self.conv3(feats)
+        feats = F.leaky_relu(feats, negative_slope=0.4)
+        
+        return feats
