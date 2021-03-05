@@ -55,9 +55,8 @@ class VGG_head(nn.Module):
         return output_feature, target_feature
 
 class VGGLoss(nn.Module):
-    def __init__(self, n_gpus=1, masked=False):
+    def __init__(self, n_gpus=1):
         super().__init__()
-        self.masked = masked
         self.l1_loss = nn.L1Loss(reduction='mean')
         self.vgg_head = VGG_head()
         # self.vgg_list = [Vgg16(requires_grad=False) for i in range(n_gpus)]
@@ -72,7 +71,7 @@ class VGGLoss(nn.Module):
         return loss
 
     def forward(self, gen_imgs, gt_imgs, masks=None):
-        if self.masked:
+        if masks is not None:
             gen_imgs = masks * gen_imgs
             gt_imgs = masks * gt_imgs
         # Note: It can be batch-lized

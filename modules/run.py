@@ -155,7 +155,7 @@ def vgg_preprocess(image):
     return image
 
 
-def s_loss(targets, recons, masks):
+def s_loss(targets, recons, masks=None):
 
     targets = vgg_preprocess(targets)
     recons = vgg_preprocess(recons)
@@ -173,7 +173,7 @@ def edit_loss(outputs, images, masks):
     bg_loss =  recon_loss(outputs, inputs)
 
     
-    style_loss = s_loss(outputs, inputs, masks)
+    style_loss = s_loss(outputs, inputs)
 
     alpha = torch.tensor(50., dtype=float)
     t_loss = bg_loss + alpha*style_loss
@@ -330,7 +330,7 @@ if __name__ == "__main__":
         
         editor.to(device)
         
-        vgg_loss = VGGLoss(masked=True)
+        vgg_loss = VGGLoss()
         recon_loss = ReconLoss()
         
         train(model=editor,num_epochs=args.num_epochs, dataloader=coco_train_loader)
