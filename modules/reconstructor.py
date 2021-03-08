@@ -29,11 +29,13 @@ class Encoder(nn.Module):
         self.conv2 = nn.Conv2d(72, in_channels, kernel_size=3, stride=1, padding=1)
         self.bn2 = nn.BatchNorm2d(in_channels)
 
-        # self.chan_conv = nn.Conv2d(in_channels, 32, kernel_size=3, stride=1, padding=1)
+        self.chan_conv1 = nn.Conv2d(in_channels, 32, kernel_size=3, stride=1, padding=1)
+        self.chan_conv2 = nn.Conv2d(in_channels, self.cnum, kernel_size=3, stride=1, padding=1)
+        self.chan_conv3 = nn.Conv2d(in_channels, 2*self.cnum, kernel_size=3, stride=1, padding=1)
         
         self.cnum = 256
 
-        self.enc_conv1 = nn.Conv2d(144,self.cnum,kernel_size=3,stride=1,padding=1)
+        self.enc_conv1 = nn.Conv2d(32,self.cnum,kernel_size=3,stride=1,padding=1)
         self.enc_conv1A = nn.Conv2d(self.cnum, 2*self.cnum, 3, 1, padding=1)
 
         # self.enc_conv2 = nn.Conv2d(2*self.cnum, 2*self.cnum, 3, 1, padding=1)
@@ -55,12 +57,19 @@ class Encoder(nn.Module):
 
         ins = maps*x
 
-        ins = self.chan_conv(ins)
+        ins = self.chan_conv1(ins)
 
         feats = self.enc_conv1(ins)
         feats = F.leaky_relu(feats, negative_slope=0.4)
+        masks = self.chan_conv2(maps)
+        masks = F.leaky_relu(masks, negative_slope=0.4)
+        feats = feats * masks
+
         feats = self.enc_conv1A(feats)
         feats = F.leaky_relu(feats, negative_slope=0.4)
+        masks = self.chan_conv3(maps)
+        masks = F.leaky_relu(masks, negative_slope=0.4)
+        feats = feats * masks
         
         # feats = self.enc_conv2(feats)
         # feats = F.leaky_relu(feats, negative_slope=0.4)
@@ -81,7 +90,7 @@ class Decoder(nn.Module):
     def __init__(self):
         super(Decoder, self).__init__()
         
-        self.cnum = 64
+        self.cnum = 256
 
         # upsample
         # self.conv1 = nn.Conv2d(4*self.cnum, 2*self.cnum, 3, 1, padding=1)
