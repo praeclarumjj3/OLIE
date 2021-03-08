@@ -1,6 +1,7 @@
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
+from utils import masking, visualize, masking_threshold, masking_objects, normalize, mask_shuffle
 
 class GatedConv2dWithActivation(nn.Module):
     
@@ -48,7 +49,7 @@ class GatedEncoder(nn.Module):
         self.conv2 = nn.Conv2d(72, in_channels, kernel_size=3, stride=1, padding=1)
         self.bn2 = nn.BatchNorm2d(in_channels)
 
-        self.chan_conv = nn.Conv2d(in_channels, 32, kernel_size=1, stride=1)
+        self.chan_conv = nn.Conv2d(in_channels, 32, kernel_size=1, stride=1, groups=4)
 
         self.cnum = 128
 
