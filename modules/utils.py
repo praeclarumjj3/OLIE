@@ -1,6 +1,8 @@
 import torch
 import matplotlib.pyplot as plt
 import random
+from torchvision import utils
+import numpy as np
 
 def masking(image, phase, index):
     if phase=="single":
@@ -45,19 +47,6 @@ def normalize(inputs):
     normalizer = lambda x: (x.cuda() - pixel_mean) / pixel_std
     return normalizer(inputs)
 
-def visualize(x,layer):
-    plt.rcParams.update({'font.size': 3})
-    dim = int(x.shape[1])
-    x = x[0].cpu() 
-    x = x.permute(1, 2, 0).numpy()
-    f, axarr = plt.subplots(int(dim**0.5),int(dim**0.5),figsize=(16,16))
-    for j in range(int(dim**0.5)*int(dim**0.5)):
-        r = int(j/int(dim**0.5))
-        c = int(j%int(dim**0.5))
-        axarr[r,c].imshow(x[:,:,j])
-        axarr[r,c].axis('off')
-    f.savefig('visualizations/{}.jpg'.format(layer))
-
 def mask_shuffle(image, index, phase):
 
     masks_start = []
@@ -83,3 +72,38 @@ def mask_shuffle(image, index, phase):
     masks = torch.stack(masks, dim=0)
 
     return masks.unsqueeze(0)
+
+def visualize(x,layer):
+    plt.rcParams.update({'font.size': 3})
+    dim = int(x.shape[1])
+    x = x[0].cpu() 
+    x = x.permute(1, 2, 0).numpy()
+    f, axarr = plt.subplots(int(dim**0.5),int(dim**0.5),figsize=(16,16))
+    for j in range(int(dim**0.5)*int(dim**0.5)):
+        r = int(j/int(dim**0.5))
+        c = int(j%int(dim**0.5))
+        axarr[r,c].imshow(x[:,:,j])
+        axarr[r,c].axis('off')
+    f.savefig('visualizations/{}.jpg'.format(layer))
+
+
+def visTensor(tensor, name, ch=0, allkernels=False, nrow=8, padding=1): 
+    n,c,w,h = tensor.shape
+
+    if allkernels: 
+        tensor = tensor.view(n*c, -1, w, h)
+    elif c != 3: 
+        tensor = tensor[:,ch,:,:].unsqueeze(dim=1)
+    
+    rows = np.min((tensor.shape[0] // nrow + 1, 64))    
+    grid = utils.make_grid(tensor, nrow=nrow, normalize=True, padding=padding)
+    
+    fig = plt.figure(figsize=(nrow,rows))
+    plt.axis('off')
+    plt.imshow(grid.numpy().transpose((1, 2, 0)))
+    
+    fig.savefig('visualizations/{}.jpg'.format(name))
+
+def visualize_kernels(model, layer, name):
+    filter = model.features[layer].weight.data.clone()
+    visTensor(filter, name, ch=0, allkernels=False)

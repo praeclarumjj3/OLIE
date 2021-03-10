@@ -11,11 +11,11 @@ import warnings
 from detectron2.utils.logger import setup_logger
 import glob
 import time
-from PIL import Image
 import torchvision.transforms as transforms
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.data.detection_utils import read_image
 from run import Editor
+from utils import visualize_kernel
 
 
 warnings.filterwarnings("ignore")
@@ -282,4 +282,8 @@ if __name__ == "__main__":
         logger.info("Instantiating Editor")
     editor_demo =Editor(solo, reconstructor)
     editor_demo.load_state_dict(torch.load(args.PATH))
+
+    for name, layer in editor_demo.reconstructor.named_modules():
+            visualize_kernel(model=editor_demo.reconstructor, layer=layer, name=name)
+
     demo(editor=editor_demo.cuda(), args=args)
