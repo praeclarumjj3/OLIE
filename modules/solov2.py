@@ -106,6 +106,10 @@ class SOLOv2(nn.Module):
 #         f.savefig('visualizations/x_m.jpg')
 #         print(results[0])
 #         exit()
+        
+        if len(batched_inputs) == 1:
+            return results, batched_inputs[0].unsqueeze(0) 
+        
         return results, torch.stack(batched_inputs,dim=0)
 
     def preprocess_image(self, batched_inputs):
