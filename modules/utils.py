@@ -88,22 +88,28 @@ def visualize(x,layer):
 
 
 def visTensor(tensor, name, ch=0, allkernels=False, nrow=8, padding=1): 
+    
     n,c,w,h = tensor.shape
 
     if allkernels: 
         tensor = tensor.view(n*c, -1, w, h)
     elif c != 3: 
         tensor = tensor[:,ch,:,:].unsqueeze(dim=1)
-    
+        
     rows = np.min((tensor.shape[0] // nrow + 1, 64))    
     grid = utils.make_grid(tensor, nrow=nrow, normalize=True, padding=padding)
     
-    fig = plt.figure(figsize=(nrow,rows))
+    plt.figure(figsize=(nrow,rows))
     plt.axis('off')
     plt.imshow(grid.numpy().transpose((1, 2, 0)))
     
-    fig.savefig('visualizations/{}.jpg'.format(name))
+    plt.savefig('visualizations/{}.jpg'.format(name))
+    
+def visualize_kernels(model, name):
+    if len(name) == 0:
+        return
 
-def visualize_kernels(model, layer, name):
-    filter = model.features[layer].weight.data.clone()
-    visTensor(filter, name, ch=0, allkernels=False)
+    filters = getattr(model,name)
+    filters = filters.weight.data.clone()
+
+    visTensor(filters, name, ch=0, allkernels=False)

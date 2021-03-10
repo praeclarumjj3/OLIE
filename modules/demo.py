@@ -15,8 +15,7 @@ import torchvision.transforms as transforms
 from detectron2.checkpoint import DetectionCheckpointer
 from detectron2.data.detection_utils import read_image
 from run import Editor
-from utils import visualize_kernel
-
+from utils import visualize_kernels
 
 warnings.filterwarnings("ignore")
 
@@ -42,6 +41,12 @@ def get_parser():
         help="Modify config options using the command-line 'KEY VALUE' pairs",
         default=[],
         nargs=argparse.REMAINDER,
+    )
+    parser.add_argument(
+        "--kernel_visualize",
+        help="kernel visualization or not",
+        default=False,
+        type=bool
     )
     parser.add_argument(
         "--PATH",
@@ -258,6 +263,7 @@ def demo_replacement(editor, args):
 if __name__ == "__main__":
     logger = setup_logger()
     args = get_parser().parse_args()
+    
     logger.info("Arguments: " + str(args))
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -283,7 +289,10 @@ if __name__ == "__main__":
     editor_demo =Editor(solo, reconstructor)
     editor_demo.load_state_dict(torch.load(args.PATH))
 
-    for name, layer in editor_demo.reconstructor.named_modules():
-            visualize_kernel(model=editor_demo.reconstructor, layer=layer, name=name)
-
+    if args.kernel_visualize:
+        for name, layer in editor_demo.reconstructor.encoder.named_modules():
+            if isinstance(layer, nn.Conv2d):
+                visualize_kernels(model=editor_demo.reconstructor.encoder, layer=layer, name=name)
+        exit()
+        
     demo(editor=editor_demo.cuda(), args=args)
