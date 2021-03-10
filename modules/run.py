@@ -18,8 +18,7 @@ import warnings
 from detectron2.utils.logger import setup_logger
 from etaprogress.progress import ProgressBar
 from detectron2.checkpoint import DetectionCheckpointer
-from loss import ReconLoss, VGGLoss
-
+from loss import ReconLoss, VGGLoss, ColorLoss
 
 warnings.filterwarnings("ignore")
 
@@ -172,11 +171,14 @@ def edit_loss(outputs, images, masks):
 
     bg_loss =  recon_loss(outputs, inputs)
 
-    
     style_loss = s_loss(outputs, inputs)
 
+    c_loss = color_loss(outputs, inputs)
+
     alpha = torch.tensor(50., dtype=float)
-    t_loss = bg_loss + alpha*style_loss
+    beta = torch.tensor(0.1, dtype=float)
+
+    t_loss = bg_loss + alpha*style_loss + beta*c_loss
 
 #     print('Style Loss: {}'.format(hole_loss))
 #     print('Simple Loss: {}'.format(bg_loss))
@@ -314,10 +316,6 @@ if __name__ == "__main__":
         logger.info("Instantiating Editor")
         editor = Editor(solo,reconstructor)
 
-        # for name, layer in editor.reconstructor.named_modules():
-        #     print(name)
-        # exit()
-
         coco_train_loader, _ = get_loader(device=device, \
                                         root=args.coco+'train2017', \
                                             json=args.coco+'annotations/instances_train2017.json', \
@@ -332,5 +330,6 @@ if __name__ == "__main__":
         
         vgg_loss = VGGLoss()
         recon_loss = ReconLoss()
+        color_loss = ColorLoss()
         
         train(model=editor,num_epochs=args.num_epochs, dataloader=coco_train_loader)
