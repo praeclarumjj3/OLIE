@@ -3,7 +3,9 @@ import torchvision.transforms as transforms
 import torch.utils.data as data
 import os
 from pycocotools.coco import COCO
-from detectron2.data.detection_utils import read_image
+import numpy as np
+from PIL import Image
+import matplotlib.pyplot as plt
 
 class CocoDataset(data.Dataset):
     """COCO Custom Dataset compatible with torch.utils.data.DataLoader."""
@@ -16,6 +18,7 @@ class CocoDataset(data.Dataset):
             transform: image transformer.
         """
         self.root = root
+        self.root_in = self.root + '_inpainted'
         self.coco = COCO(json)
         self.ids = list(self.coco.imgs.keys())
         self.transform = transform
@@ -25,38 +28,36 @@ class CocoDataset(data.Dataset):
         """Returns one image."""
         coco = self.coco
         img_id = self.ids[index]
-        path = coco.loadImgs(img_id)[0]['file_name']
-        ann_ids = []
+        img = coco.loadImgs(img_id)[0]
+        path = img['file_name']
+        annIds = coco.getAnnIds(imgIds=img['id'], iscrowd=None)
+        anns = coco.loadAnns(annIds)
+        mask = np.zeros((img['height'],img['width']))
 
-        for ann in self.coco.anns.keys():
-            if coco.anns[ann]['image_id'] == img_id:
-                ann_ids.append(ann)
+        for i in range(len(anns)):
+            mask = np.maximum(coco.annToMask(anns[i]), mask)
         
-        b_boxes = []
-        for ann_id in ann_ids:
-            b_boxes.append(coco.anns[ann_id]['bbox'])
+        org = Image.open(os.path.join(self.root, path))
+        org = np.asarray(org, dtype="float64")
         
-        for i in range(len(b_boxes)):
-            for j in range(len(b_boxes[i])):
-                b_boxes[i][j] = round(b_boxes[i][j])
+        mask = np.expand_dims(mask, axis=2)
+        
+        org = org*mask
+        
+        # plt.imsave('visualizations/mask.jpg',np.squeeze(mask))
+        # plt.imsave('visualizations/org.jpg',org.astype(np.uint8))
+        # exit()
 
-        org = read_image(os.path.join(self.root, path), format="BGR")
         image = torch.from_numpy(org.copy()).permute(2,0,1).float()
-
-        hole_image = torch.from_numpy(org.copy()).permute(2,0,1).float()
-        mask = torch.zeros_like(hole_image)
-        for b_box in b_boxes:
-            hole_image[:,b_box[1]:b_box[1]+b_box[3],b_box[0]:b_box[0]+b_box[2]] = torch.Tensor([ 0., 0., 0.]).view(3, 1, 1)
-            mask[:,b_box[1]:b_box[1]+b_box[3],b_box[0]:b_box[0]+b_box[2]] = torch.tensor(1.)
+        mask = torch.from_numpy(mask.copy()).permute(2,0,1).float()
 
         image = self.transform(image)
-        hole_image = self.transform(hole_image)
         mask = self.transform(mask)
-
+    
         if self.device is not None:
-            return image.to(self.device), hole_image.to(self.device), mask.to(self.device)
+            return image.to(self.device), mask.to(self.device)
         else:
-            return image, hole_image, mask
+            return image, mask
 
     def __len__(self):
         return len(self.ids)
@@ -76,12 +77,11 @@ def collate_fn(data):
         
     """
 
-    images, hole_images, masks = zip(*data)
+    images, masks = zip(*data)
     images = list(images)
-    hole_images = list(hole_images)
     masks = list(masks)
 
-    return images, hole_images, masks
+    return images, masks
     
 def get_loader(device, root, json, batch_size, shuffle, num_workers):
     """Returns torch.utils.data.DataLoader for custom coco dataset."""
