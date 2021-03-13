@@ -2,7 +2,7 @@
 from __future__ import print_function
 
 from torch._C import device
-from modules.dataloader import get_loader
+from modules.coco_loader import get_loader
 import torch
 from torch import nn
 import sys
@@ -204,14 +204,15 @@ def train(model, num_epochs, dataloader):
             bar.numerator = i+1
             print(bar, end='\r')
 
-            inputs, _, masks = data
+            inputs, inpainted_inputs, _, masks = data
 
             # zero the parameter gradients
             optimizer.zero_grad()
 
             # forward + backward + optimize
-            outputs = model(inputs)
-            loss = edit_loss(outputs, inputs, masks)
+            maps, _ = model.solo(inpainted_inputs)
+            outputs = model.reconstructor(maps, torch.stack(inputs,dim=0))
+            loss = edit_loss(outputs, inpainted_inputs, masks)
             loss.backward()
             optimizer.step()
 
@@ -220,9 +221,10 @@ def train(model, num_epochs, dataloader):
             if i%80 == 0:
                 print('Loss: {}'.format(loss.item()))
                 inputs = torch.stack(inputs,0).cuda()
+                inpainted_inputs = torch.stack(inpainted_inputs,0).cuda()
                 outputs = un_normalize(outputs)
                 masks = torch.stack(masks,0).cuda()
-                visualize(inputs*torch.tensor(1./255),torch.round(outputs.detach())*torch.tensor(1./255),inputs*torch.tensor(1./255)-torch.round(outputs.detach())*torch.tensor(1./255),i//80)
+                visualize(inpainted_inputs*torch.tensor(1./255),torch.round(outputs.detach())*torch.tensor(1./255),inputs*torch.tensor(1./255)-torch.round(outputs.detach())*torch.tensor(1./255),i//80)
             
             sys.stdout.flush()
         
