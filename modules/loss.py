@@ -1,7 +1,6 @@
 import torch
 from torch import nn
 from torchvision.models import vgg16, vgg19
-import pytorch_colors as colors
 
 class Vgg16(torch.nn.Module):
     def __init__(self):
@@ -92,21 +91,3 @@ class ReconLoss(nn.Module):
         
     def forward(self, gen_imgs, gt_imgs):
         return self.loss_fn(gen_imgs, gt_imgs)
-
-
-class ColorLoss(nn.Module):
-    def __init__(self):
-        super().__init__()
-        self.loss_fn = nn.MSELoss()
-        
-    def forward(self, gen_imgs, gt_imgs):
-
-        gen_imgs = gen_imgs * torch.tensor(1./255)
-        gen_imgs = gen_imgs.clamp(0, 1)
-
-        gt_imgs = gt_imgs * torch.tensor(1./255)
-        gt_imgs = gt_imgs.clamp(0, 1)
-
-        gen = colors.rgb_to_lab(gen_imgs)
-        gt = colors.rgb_to_lab(gt_imgs)
-        return self.loss_fn(gen, gt)

@@ -18,7 +18,7 @@ import warnings
 from detectron2.utils.logger import setup_logger
 from etaprogress.progress import ProgressBar
 from detectron2.checkpoint import DetectionCheckpointer
-from loss import ReconLoss, VGGLoss, ColorLoss
+from loss import ReconLoss, VGGLoss
 
 warnings.filterwarnings("ignore")
 
@@ -114,15 +114,15 @@ def visualize(x,y,z,i):
     y = y[:,:,::-1]
     z = z[:,:,::-1]
     ax1.imshow(x)
-    ax1.set_title("Original Image")
+    ax1.set_title("Composite Image")
     ax1.axis('off')
 
     ax2.imshow(y)
-    ax2.set_title("Reconstruction")
+    ax2.set_title("Background Image")
     ax2.axis('off')
 
     ax3.imshow(z)
-    ax3.set_title("Image - Reconstruction")
+    ax3.set_title("Reconstruction")
     ax3.axis('off')
 
     f.savefig('visualizations/runs/run_{}.jpg'.format(i))
@@ -164,28 +164,25 @@ def s_loss(targets, recons, masks=None):
     return style_loss
 
 
-def edit_loss(outputs, images, masks):
+def edit_loss(outputs, images):
     inputs = torch.stack(images,0).cuda()
     outputs = un_normalize(outputs)
-    masks = torch.stack(masks,0).cuda()
+    # masks = torch.stack(masks,0).cuda()
 
     bg_loss =  recon_loss(outputs, inputs)
 
-    style_loss = s_loss(outputs, inputs)
+    # style_loss = s_loss(outputs, inputs)
 
-    c_loss = color_loss(outputs, inputs)
+    # alpha = torch.tensor(50., dtype=float)
 
-    alpha = torch.tensor(50., dtype=float)
-    beta = torch.tensor(0.1, dtype=float)
-
-    t_loss = bg_loss + alpha*style_loss + beta*c_loss
+    # t_loss = bg_loss + alpha*style_loss
 
 #     print('Style Loss: {}'.format(hole_loss))
 #     print('Simple Loss: {}'.format(bg_loss))
 #     print('Total Loss: {}'.format(t_loss))
 #     print('----------------------')
 
-    return t_loss
+    return bg_loss
 
 def train(model, num_epochs, dataloader):
 
@@ -204,15 +201,15 @@ def train(model, num_epochs, dataloader):
             bar.numerator = i+1
             print(bar, end='\r')
 
-            inputs, inpainted_inputs, _, masks = data
+            comp_inputs, bg_inputs = data
 
             # zero the parameter gradients
             optimizer.zero_grad()
 
             # forward + backward + optimize
-            maps, _ = model.solo(inpainted_inputs)
-            outputs = model.reconstructor(maps, torch.stack(inputs,dim=0))
-            loss = edit_loss(outputs, inpainted_inputs, masks)
+            maps, _ = model.solo(bg_inputs)
+            outputs = model.reconstructor(maps, torch.stack(comp_inputs,dim=0))
+            loss = edit_loss(outputs, bg_inputs)
             loss.backward()
             optimizer.step()
 
@@ -220,11 +217,11 @@ def train(model, num_epochs, dataloader):
             
             if i%80 == 0:
                 print('Loss: {}'.format(loss.item()))
-                inputs = torch.stack(inputs,0).cuda()
-                inpainted_inputs = torch.stack(inpainted_inputs,0).cuda()
+                comp_inputs = torch.stack(comp_inputs,0).cuda()
+                bg_inputs = torch.stack(bg_inputs,0).cuda()
                 outputs = un_normalize(outputs)
-                masks = torch.stack(masks,0).cuda()
-                visualize(inpainted_inputs*torch.tensor(1./255),torch.round(outputs.detach())*torch.tensor(1./255),inputs*torch.tensor(1./255)-torch.round(outputs.detach())*torch.tensor(1./255),i//80)
+                # masks = torch.stack(masks,0).cuda()
+                visualize(comp_inputs*torch.tensor(1./255),bg_inputs*torch.tensor(1./255),torch.clamp(min=0., max=1.,input=torch.round(outputs.detach())*torch.tensor(1./255)),i//80)
             
             sys.stdout.flush()
         
@@ -319,7 +316,8 @@ if __name__ == "__main__":
         editor = Editor(solo,reconstructor)
 
         coco_train_loader, _ = get_loader(device=device, \
-                                        root=args.coco+'train2017', \
+                                        # root=args.coco+'train2017', \
+                                        root = 'datasets/bg_composite/', \
                                             json=args.coco+'annotations/instances_train2017.json', \
                                                 batch_size=args.batch_size, \
                                                     shuffle=True, \
@@ -332,6 +330,5 @@ if __name__ == "__main__":
         
         vgg_loss = VGGLoss()
         recon_loss = ReconLoss()
-        color_loss = ColorLoss()
         
         train(model=editor,num_epochs=args.num_epochs, dataloader=coco_train_loader)

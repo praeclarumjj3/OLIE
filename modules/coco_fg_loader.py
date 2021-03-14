@@ -38,11 +38,13 @@ class CocoDataset(data.Dataset):
             mask = np.maximum(coco.annToMask(anns[i]), mask)
         
         org = Image.open(os.path.join(self.root, path))
+        
+        if org.mode != 'RGB':
+            org = org.convert('RGB')
+        
         org = np.asarray(org, dtype="float64")
         
         mask = np.expand_dims(mask, axis=2)
-        
-        org = org*mask
         
         # plt.imsave('visualizations/mask.jpg',np.squeeze(mask))
         # plt.imsave('visualizations/org.jpg',org.astype(np.uint8))
@@ -55,9 +57,9 @@ class CocoDataset(data.Dataset):
         mask = self.transform(mask)
     
         if self.device is not None:
-            return image.to(self.device), mask.to(self.device)
+            return image.to(self.device), mask.to(self.device), path
         else:
-            return image, mask
+            return image, mask, path
 
     def __len__(self):
         return len(self.ids)
@@ -77,18 +79,19 @@ def collate_fn(data):
         
     """
 
-    images, masks = zip(*data)
+    images, masks, paths = zip(*data)
     images = list(images)
     masks = list(masks)
+    paths = list(paths)
 
-    return images, masks
+    return images, masks, paths
     
 def get_loader(device, root, json, batch_size, shuffle, num_workers):
     """Returns torch.utils.data.DataLoader for custom coco dataset."""
     # COCO caption dataset
     
     transform = transforms.Compose([
-        transforms.Resize((640,640))
+        transforms.Resize((256,256))
     ])
 
     coco = CocoDataset(device=device,
@@ -96,7 +99,7 @@ def get_loader(device, root, json, batch_size, shuffle, num_workers):
                        json=json,
                        transform=transform)
     
-    coco= torch.utils.data.Subset(coco, list((range(0,int(len(coco)*0.015)))))
+#     coco= torch.utils.data.Subset(coco, list((range(0,50000))))
     
     # Data loader for COCO dataset
     # This will return (images)

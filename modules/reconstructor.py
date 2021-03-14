@@ -29,14 +29,12 @@ class Encoder(nn.Module):
         self.conv2 = nn.Conv2d(72, in_channels, kernel_size=3, stride=1, padding=1)
         self.bn2 = nn.BatchNorm2d(in_channels)
 
-        self.chan_conv1 = nn.Conv2d(in_channels, 32, kernel_size=3, stride=1, padding=1, groups=4)
-        self.chan_conv2 = nn.Conv2d(in_channels, self.cnum, kernel_size=3, stride=1, padding=1,groups=8)
-        self.chan_conv3 = nn.Conv2d(in_channels, 2*self.cnum, kernel_size=3, stride=1, padding=1,groups=16)
+#         self.chan_conv = nn.Conv2d(in_channels, 32, kernel_size=3, stride=1, padding=1)
         
         self.cnum = 256
 
-        self.enc_conv1 = nn.Conv2d(32,self.cnum,kernel_size=3,stride=1,padding=1,groups=8)
-        self.enc_conv1A = nn.Conv2d(self.cnum, 2*self.cnum, 3, 1, padding=1,groups=16)
+        self.enc_conv1 = nn.Conv2d(in_channels,self.cnum,kernel_size=3,stride=1,padding=1)
+        self.enc_conv1A = nn.Conv2d(self.cnum, 2*self.cnum, 3, 1, padding=1)
 
         # self.enc_conv2 = nn.Conv2d(2*self.cnum, 2*self.cnum, 3, 1, padding=1)
         # self.enc_conv2A = nn.Conv2d(2*self.cnum, 4*self.cnum, 3, 1, padding=1)
@@ -57,19 +55,16 @@ class Encoder(nn.Module):
 
         ins = maps*x
 
-        ins = self.chan_conv1(ins)
+#         ins = self.chan_conv(ins)
+        
+#         visualize(ins,'ins')
 
         feats = self.enc_conv1(ins)
         feats = F.leaky_relu(feats, negative_slope=0.4)
-        masks = self.chan_conv2(maps)
-        masks = F.leaky_relu(masks, negative_slope=0.4)
-        feats = feats * masks
-
+#         visualize(feats,'feats1')
         feats = self.enc_conv1A(feats)
         feats = F.leaky_relu(feats, negative_slope=0.4)
-        masks = self.chan_conv3(maps)
-        masks = F.leaky_relu(masks, negative_slope=0.4)
-        feats = feats * masks
+#         visualize(feats,'feats2')
         
         # feats = self.enc_conv2(feats)
         # feats = F.leaky_relu(feats, negative_slope=0.4)
@@ -94,11 +89,11 @@ class Decoder(nn.Module):
 
         # upsample
         # self.conv1 = nn.Conv2d(4*self.cnum, 2*self.cnum, 3, 1, padding=1)
-        self.conv1A = nn.Conv2d(2*self.cnum, self.cnum, 3, 1, padding=1,groups=16)
+        self.conv1A = nn.Conv2d(2*self.cnum, self.cnum, 3, 1, padding=1)
         
         #upsample
-        self.conv2 = nn.Conv2d(self.cnum, self.cnum//2, 3, 1, padding=1,groups=8)
-        self.conv2A = nn.Conv2d(self.cnum//2, self.cnum//4, 3, 1, padding=1,groups=4)
+        self.conv2 = nn.Conv2d(self.cnum, self.cnum//2, 3, 1, padding=1)
+        self.conv2A = nn.Conv2d(self.cnum//2, self.cnum//4, 3, 1, padding=1)
         
         self.conv3 = nn.Conv2d(self.cnum//4, 3, 3, 1, padding=1)
 
@@ -110,12 +105,14 @@ class Decoder(nn.Module):
         feats = F.interpolate(feats, scale_factor=2)
         feats = self.conv1A(feats)
         feats = F.leaky_relu(feats, negative_slope=0.4)
+#         visualize(feats,'dec_feats1')
 
         feats = self.conv2(feats)
         feats = F.leaky_relu(feats, negative_slope=0.4)
         feats = F.interpolate(feats, scale_factor=2)
         feats = self.conv2A(feats)
         feats = F.leaky_relu(feats, negative_slope=0.4)
+#         visualize(feats,'dec_feats2')
 
         feats = self.conv3(feats)
         
