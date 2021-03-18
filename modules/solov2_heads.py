@@ -28,7 +28,10 @@ class SOLOv2InsHead(nn.Module):
             print("Strides should match the features.")
         # fmt: on
 
-        head_configs = {"kernel": (cfg.MODEL.SOLOV2.NUM_INSTANCE_CONVS,
+        head_configs = {"cate": (cfg.MODEL.SOLOV2.NUM_INSTANCE_CONVS,
+                                 cfg.MODEL.SOLOV2.USE_DCN_IN_INSTANCE,
+                                 False),
+                        "kernel": (cfg.MODEL.SOLOV2.NUM_INSTANCE_CONVS,
                                    cfg.MODEL.SOLOV2.USE_DCN_IN_INSTANCE,
                                    cfg.MODEL.SOLOV2.USE_COORD_CONV)
                         }
@@ -64,6 +67,11 @@ class SOLOv2InsHead(nn.Module):
                 tower.append(nn.ReLU(inplace=True))
             self.add_module('{}_tower'.format(head),
                             nn.Sequential(*tower))
+        
+        self.cate_pred = nn.Conv2d(
+            self.instance_channels, self.num_classes,
+            kernel_size=3, stride=1, padding=1
+        )
 
         self.kernel_pred = nn.Conv2d(
             self.instance_channels, self.num_kernels,
@@ -71,8 +79,8 @@ class SOLOv2InsHead(nn.Module):
         )
 
         for modules in [
-             self.kernel_tower,
-             self.kernel_pred,
+            self.cate_tower, self.kernel_tower,
+            self.cate_pred, self.kernel_pred,
         ]:
             for l in modules.modules():
                 if isinstance(l, nn.Conv2d):
@@ -89,6 +97,7 @@ class SOLOv2InsHead(nn.Module):
         Returns:
             pass
         """
+        cate_pred = []
         kernel_pred = []
 
         for idx, feature in enumerate(features):
@@ -106,13 +115,16 @@ class SOLOv2InsHead(nn.Module):
             kernel_feat = ins_kernel_feat
             seg_num_grid = self.num_grids[idx]
             kernel_feat = F.interpolate(kernel_feat, size=seg_num_grid, mode='bilinear')
+            cate_feat = kernel_feat[:, :-2, :, :]
 
             # kernel
             kernel_feat = self.kernel_tower(kernel_feat)
             kernel_pred.append(self.kernel_pred(kernel_feat))
 
-    
-        return kernel_pred
+            # cate
+            cate_feat = self.cate_tower(cate_feat)
+            cate_pred.append(self.cate_pred(cate_feat))
+        return cate_pred, kernel_pred
 
 
 class SOLOv2MaskHead(nn.Module):

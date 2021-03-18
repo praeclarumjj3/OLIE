@@ -221,7 +221,7 @@ def train(model, num_epochs, dataloader):
                 bg_inputs = torch.stack(bg_inputs,0).cuda()
                 outputs = un_normalize(outputs)
                 # masks = torch.stack(masks,0).cuda()
-                visualize(comp_inputs*torch.tensor(1./255),bg_inputs*torch.tensor(1./255),torch.clamp(min=0., max=1.,input=torch.round(outputs.detach())*torch.tensor(1./255)),i//80)
+                visualize(comp_inputs*torch.tensor(1./255),bg_inputs*torch.tensor(1./255),torch.clamp(min=0., max=255.,input=torch.round(outputs.detach()))*torch.tensor(1./255),i//80)
             
             sys.stdout.flush()
         

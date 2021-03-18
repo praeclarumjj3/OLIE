@@ -97,7 +97,8 @@ def demo(editor, args):
         start_time = time.time()
         
         with torch.no_grad():
-           reconstruction = editor(batched_input)     
+           reconstruction = editor(batched_input)
+           exit()     
 
         reconstruction = un_normalize(reconstruction)
         reconstruction = torch.clamp(torch.round(reconstruction.squeeze(0).cpu()),min=0., max = 255.)
@@ -276,23 +277,23 @@ if __name__ == "__main__":
     for param in solo.parameters():
         param.requires_grad = False
     
-    image = torch.rand(3,64,64)
-    batched_input = []
-    batched_input.append(image)
-    r,_ = solo(batched_input)
+    # image = torch.rand(3,64,64)
+    # batched_input = []
+    # batched_input.append(image)
+    # r,_ = solo(batched_input)
     
-    reconstructor = Reconstructor(in_channels=r.shape[1])
+    # reconstructor = Reconstructor(in_channels=r.shape[1])
 
     if not os.path.exists('visualizations/'):
         os.makedirs('visualizations/')
         logger.info("Instantiating Editor")
-    editor_demo =Editor(solo, reconstructor)
-    editor_demo.load_state_dict(torch.load(args.PATH))
+    # editor_demo =Editor(solo, reconstructor)
+    # editor_demo.load_state_dict(torch.load(args.PATH))
 
-    if args.kernel_visualize:
-        for name, layer in editor_demo.reconstructor.encoder.named_modules():
-            if isinstance(layer, nn.Conv2d):
-                visualize_kernels(model=editor_demo.reconstructor.encoder, layer=layer, name=name)
-        exit()
+    # if args.kernel_visualize:
+        # for name, layer in editor_demo.reconstructor.encoder.named_modules():
+            # if isinstance(layer, nn.Conv2d):
+                # visualize_kernels(model=editor_demo.reconstructor.encoder, layer=layer, name=name)
+        # exit()
         
-    demo(editor=editor_demo.cuda(), args=args)
+    demo(editor=solo.cuda(), args=args)
