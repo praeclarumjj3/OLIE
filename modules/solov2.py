@@ -4,11 +4,10 @@ import torch.nn.functional as F
 from torch import nn
 import math
 from detectron2.modeling.backbone import build_backbone
-from detectron2.structures import ImageList, Instances, Boxes
-from detectron2.utils.visualizer import ColorMode, Visualizer
-from .utils import point_nms, mask_nms, matrix_nms
+from detectron2.structures import ImageList
+from .solo_utils import point_nms, mask_nms, matrix_nms, visualize_instance_map, visualize_maps, visualize_single_map
 from modules.solov2_heads import SOLOv2InsHead, SOLOv2MaskHead
-import matplotlib.pyplot as plt
+
 import warnings
 warnings.filterwarnings("ignore")
 
@@ -108,28 +107,23 @@ class SOLOv2(nn.Module):
                          for cate_p in cate_pred]
         # do inference for results.
         results = self.inference_instance_maps(cate_pred, kernel_pred, mask_pred, images.image_sizes, size, batched_inputs)
-
-        # plt.rcParams.update({'font.size': 3})
-        # results = torch.stack(results,0)
-        # x = results[0]
-        # dim = int(x.shape[0])
-        # x = x.cpu() 
-        # x = x.permute(1, 2, 0).numpy()
-        # f, axarr = plt.subplots(int(dim**0.5)+1,int(dim**0.5)+1,figsize=(16,16))
-        # for j in range(dim):
-        #     r = int(j/int((dim**0.5)+1))
-        #     c = int(j%int((dim**0.5)+1))
-        #     axarr[r,c].imshow(x[:,:,j])
-        #     axarr[r,c].axis('off')
-        # f.savefig('visualizations/{}.jpg'.format('solo'))
-        # exit()
         
-        return results
+        preds = []
+        # vis_preds = []
 
-        # if len(batched_inputs) == 1:
-        #     return results, batched_inputs[0].unsqueeze(0) 
+        for res in results:
+            pred, _ = torch.max(res.unsqueeze(0), dim=1)
+            preds.append(pred)
+            # vis_preds.append(_)
+
+        # visualize_maps(results[0], 'pred_maps')
+        # visualize_single_map(vis_preds[0], 'pred_indices')
+        # visualize_instance_map(batched_inputs[0],vis_preds[0])
+
+        if len(batched_inputs) == 1:
+            return preds[0].unsqueeze(0), batched_inputs[0].unsqueeze(0) 
         
-        # return results, torch.stack(batched_inputs,dim=0)
+        return torch.stack(preds,dim=0), torch.stack(batched_inputs,dim=0)
 
 
     def preprocess_image(self, batched_inputs):
@@ -195,12 +189,8 @@ class SOLOv2(nn.Module):
         cate_scores = cate_preds[inds]
         
         if len(cate_scores) == 0:
-            results = Instances(ori_size)
-            results.scores = torch.tensor([])
-            results.pred_classes = torch.tensor([])
-            results.pred_masks = torch.tensor([])
-            results.pred_boxes = Boxes(torch.tensor([]))
-            return results
+            pred_masks = torch.tensor([])
+            return pred_masks
 
         # cate_labels & kernel_preds
         inds = inds.nonzero()
@@ -229,12 +219,8 @@ class SOLOv2(nn.Module):
         # filter.
         keep = sum_masks > strides
         if keep.sum() == 0:
-            results = Instances(ori_size)
-            results.scores = torch.tensor([])
-            results.pred_classes = torch.tensor([])
-            results.pred_masks = torch.tensor([])
-            results.pred_boxes = Boxes(torch.tensor([]))
-            return results
+            pred_masks = torch.tensor([])
+            return pred_masks
 
         seg_masks = seg_masks[keep, ...]
         seg_preds = seg_preds[keep, ...]
@@ -269,12 +255,8 @@ class SOLOv2(nn.Module):
             raise NotImplementedError
 
         if keep.sum() == 0:
-            results = Instances(ori_size)
-            results.scores = torch.tensor([])
-            results.pred_classes = torch.tensor([])
-            results.pred_masks = torch.tensor([])
-            results.pred_boxes = Boxes(torch.tensor([]))
-            return results
+            pred_masks = torch.tensor([])
+            return pred_masks
 
         seg_preds = seg_preds[keep, :, :]
         cate_scores = cate_scores[keep]
@@ -296,23 +278,7 @@ class SOLOv2(nn.Module):
                                   size=ori_size,
                                   mode='bilinear').squeeze(0)
         seg_masks = seg_masks > self.mask_threshold
+    
+        pred_masks = seg_masks
 
-        results = Instances(ori_size)
-        results.pred_classes = cate_labels
-        results.scores = cate_scores
-        results.pred_masks = seg_masks
-
-        # get bbox from mask
-        pred_boxes = torch.zeros(seg_masks.size(0), 4)
-        for i in range(seg_masks.size(0)):
-           mask = seg_masks[i].squeeze()
-           ys, xs = torch.where(mask)
-           pred_boxes[i] = torch.tensor([xs.min(), ys.min(), xs.max(), ys.max()]).float()
-        results.pred_boxes = Boxes(pred_boxes)
-
-#         print(results.pred_boxes)
-#         print(results.pred_classes)
-#         print(results.scores)
-#         exit()
-
-        return results.pred_masks
+        return pred_masks
