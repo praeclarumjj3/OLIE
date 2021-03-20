@@ -7,6 +7,7 @@ from scipy.io import loadmat
 import matplotlib.pyplot as plt
 from torch.autograd import Variable
 import collections
+import torchvision.transforms as transforms
 
 def visualize_maps(maps, name):
     x = maps.cpu() 
@@ -21,13 +22,11 @@ def visualize_maps(maps, name):
     f.savefig('visualizations/{}.jpg'.format(name))
 
 def visualize_single_map(mapi, name):
-    x = mapi.cpu() 
-    x = x.permute(1, 2, 0).numpy()
-    f, (ax) = plt.subplots(1,1)
-    ax.imshow(x)
-    ax.set_title("Map")
-    ax.axis('off')
-    f.savefig('visualizations/{}.jpg'.format(name))
+    x = mapi.cpu()
+    x = x.permute(1,2,0)
+    x = np.uint8(x)
+    im = transforms.ToPILImage()(x).convert("RGB")
+    im.save(('visulaizations/{}.png'.format(name)))
 
 def point_nms(heat, kernel=2):
     # kernel must be 2
