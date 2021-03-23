@@ -18,7 +18,7 @@ if __name__=="__main__":
 
     coco_test_loader = get_loader(root='datasets/coco/val2017', \
                                         json='datasets/coco/annotations/instances_val2017.json', \
-                                            shuffle=True)
+                                            shuffle=False)
 
     total = len(coco_test_loader)
     bar = ProgressBar(total, max_width=80)
@@ -57,4 +57,4 @@ if __name__=="__main__":
         str_result = r.json()['str_result']
         result = str_result.encode("latin1")
         result = Image.frombytes('RGB', (W, H), result, 'raw')
-        result.save("baselines/profill/results/{}".format(i))
+        result.save("baselines/profill/results/{}.jpg".format(i))
