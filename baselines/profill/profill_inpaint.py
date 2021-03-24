@@ -4,7 +4,6 @@ from etaprogress.progress import ProgressBar
 import os
 import requests
 import time
-import matplotlib.pyplot as plt
 
 if __name__=="__main__":
     if not os.path.exists('baselines/profill/results/'):
@@ -12,9 +11,6 @@ if __name__=="__main__":
     
     if not os.path.exists('baselines/profill/imgs/'):
             os.makedirs('baselines/profill/imgs/')
-    
-    if not os.path.exists('baselines/profill/masks/'):
-            os.makedirs('baselines/profill/masks/')
 
     coco_test_loader = get_loader(root='datasets/coco/val2017', \
                                         json='datasets/coco/annotations/instances_val2017.json', \
