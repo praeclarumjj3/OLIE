@@ -91,8 +91,8 @@ for i, data in tqdm(enumerate(coco_test_loader, 0)):
         oimg = Image.fromarray(oimg,'RGB')
         omsk = Image.fromarray(omsk,'L')
 
-        oimg.save("baselines/deepgin/imgs/{}.jpg".format(i))
-        omsk.save("baselines/deepgin/masks/{}.jpg".format(i))
+        simg = oimg
+        smsk = omsk
         
         ow, oh = oimg.size 
 
@@ -207,9 +207,26 @@ for i, data in tqdm(enumerate(coco_test_loader, 0)):
         np_new_compltd_img[:, :, 1] = np_new_compltd_img[:, :, 1] * (np_omsk / 255.0) + ((255.0 - np_omsk) / 255.0) * np_oimg[:, :, 1] 
         np_new_compltd_img[:, :, 2] = np_new_compltd_img[:, :, 2] * (np_omsk / 255.0) + ((255.0 - np_omsk) / 255.0) * np_oimg[:, :, 2] 
 
+        result = np_new_compltd_img.astype('uint8')
+        result = Image.fromarray(result,'RGB')
+
         compltd_path = 'baselines/deepgin/results/{}.jpg'.format(num) 
-        util.save_image(np_new_compltd_img, compltd_path)
-        num+=1 
+        num+=1
+        
+        images = [simg, smsk, result]
+        widths, heights = zip(*(i.size for i in images))
+
+        total_width = sum(widths)
+        max_height = max(heights)
+
+        new_im = Image.new('RGB', (total_width, max_height))
+
+        x_offset = 0
+        for im in images:
+          new_im.paste(im, (x_offset,0))
+          x_offset += im.size[0]
+
+        new_im.save(compltd_path) 
 
 end_time = time.time() - start_time 
 print('Avg Time Taken: %.3f sec' % (end_time / dataset_size))

@@ -38,9 +38,6 @@ if __name__=="__main__":
 
         image = Image.fromarray(image,'RGB')
         mask = Image.fromarray(mask,'L')
-
-        image.save("baselines/profill/imgs/{}.jpg".format(i))
-        mask.save("baselines/profill/masks/{}.jpg".format(i))
         
         mode_img = image.mode
         mode_msk = mask.mode
@@ -57,4 +54,18 @@ if __name__=="__main__":
         str_result = r.json()['str_result']
         result = str_result.encode("latin1")
         result = Image.frombytes('RGB', (W, H), result, 'raw')
-        result.save("baselines/profill/results/{}.jpg".format(i))
+
+        images = [image, mask, result]
+        widths, heights = zip(*(i.size for i in images))
+
+        total_width = sum(widths)
+        max_height = max(heights)
+
+        new_im = Image.new('RGB', (total_width, max_height))
+
+        x_offset = 0
+        for im in images:
+          new_im.paste(im, (x_offset,0))
+          x_offset += im.size[0]
+
+        new_im.save("baselines/profill/results/{}.jpg".format(i))

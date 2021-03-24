@@ -37,7 +37,10 @@ class CocoDataset(data.Dataset):
 
         for i in range(len(anns)):
             mask = np.maximum(coco.annToMask(anns[i]), mask)
-        
+            if np.mean(mask) > 0.2:
+                print(np.mean(mask))
+                break
+
         org = Image.open(os.path.join(self.root, path))
         
         if org.mode != 'RGB':
@@ -85,7 +88,7 @@ def get_loader(root, json, shuffle):
     # COCO caption dataset
     
     transform = transforms.Compose([
-        transforms.Resize((640,640))
+        transforms.Resize((300,300))
     ])
 
     coco = CocoDataset(root=root,

@@ -33,6 +33,8 @@ class CocoDataset(data.Dataset):
         mask = np.zeros((img['height'],img['width']))
 
         for i in range(len(anns)):
+            if np.mean(mask) > 0.2:
+                break
             mask = np.maximum(coco.annToMask(anns[i]), mask)
         
         org = Image.open(os.path.join(self.root, path))
@@ -82,7 +84,7 @@ def get_loader(root, json, shuffle):
     # COCO caption dataset
     
     transform = transforms.Compose([
-        transforms.Resize((640,640))
+        transforms.Resize((300,300))
     ])
 
     coco = CocoDataset(root=root,
