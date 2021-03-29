@@ -73,32 +73,33 @@ The repository is structured as follows:
 - `adet` - Base code from the AdelaiDet repo.
 - `configs` - Configuration files for SOLOv2.
 - `datasets` - Dataset related scripts.
-- `modules` - Contains scripts for different modules.
+- `modules` - Contains python scripts for different modules.
+- `scripts` - Contains shell scripts for running code.
 
 ## 4. Reproduction
 
 - Run the following command to run a demo and see visualization results:
 
 ```
-sh demo.sh
+sh scripts/demo.sh
 ```
 
 - Run the following command to train the **OLIE** model for `30 epochs`:
 
 ```
-sh train.sh
+sh scripts/train.sh
 ```
 
 - Run the following command to start distributed training of the **OLIE** model for `30 epochs`:
 
 ```
-sh dist_train.sh
+sh scripts/dist_train.sh
 ```
 
 - Run the following command to evaluate the **OLIE** model from checkpoints:
 
 ```
-sh evaluate.sh
+sh scripts/evaluate.sh
 ```
 
 ## 5. Experiments
