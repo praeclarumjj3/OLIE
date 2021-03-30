@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 from torch._C import device
-from modules.coco_fg_loader import get_loader
-from modules.places2_loader import get_places2_loader
+from datasets.composite_data.coco_fg_loader import get_loader
+from datasets.composite_data.places2_loader import get_places2_loader
 import torch
 import argparse
 import warnings

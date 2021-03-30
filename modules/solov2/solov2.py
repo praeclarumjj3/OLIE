@@ -113,6 +113,7 @@ class SOLOv2(nn.Module):
 
         for res in results:
             pred, _ = torch.max(res.unsqueeze(0), dim=1)
+            pred = (pred > 0).float()
             preds.append(pred)
             # vis_preds.append(_)
 

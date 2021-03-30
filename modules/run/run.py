@@ -2,13 +2,13 @@
 from __future__ import print_function
 
 from torch._C import device
-from modules.coco_loader import get_loader
+from datasets.coco_loader import get_loader
 import torch
 from torch import nn
 import sys
 from adet.config import get_cfg
-from modules.solov2 import SOLOv2
-from modules.reconstructor import Reconstructor
+from modules.networks.solov2 import SOLOv2
+from modules.networks.reconstructor import Reconstructor
 import matplotlib.pyplot as plt
 import argparse
 import os
@@ -21,21 +21,6 @@ from detectron2.checkpoint import DetectionCheckpointer
 from loss import ReconLoss, VGGLoss
 
 warnings.filterwarnings("ignore")
-
-class Editor(nn.Module):
-    
-    def __init__(self, solo, reconstructor):
-        super().__init__()
-
-        # get the device of the model
-        self.solo = solo
-        self.reconstructor = reconstructor
-
-    def forward(self, x):
-        masks, images = self.solo(x)
-        output = self.reconstructor(masks, images)
-        return output
-
 
 def setup_cfg(args):
     # load config from file and command-line arguments
@@ -184,6 +169,16 @@ def edit_loss(outputs, images):
 
     return bg_loss
 
+def tensor_to_list(maps):
+    
+    masks = []
+    maps = maps.squeeze(0)
+
+    for i in range(maps.shape[0]):
+        masks.append(maps[i])
+
+    return masks
+
 def train(model, num_epochs, dataloader):
 
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr, betas=(0.9, 0.999), weight_decay=1e-2)
@@ -202,6 +197,8 @@ def train(model, num_epochs, dataloader):
             print(bar, end='\r')
 
             comp_inputs, bg_inputs = data
+
+            comp_inputs, bg_inputs = tensor_to_list(comp_inputs), tensor_to_list(bg_inputs)
 
             # zero the parameter gradients
             optimizer.zero_grad()

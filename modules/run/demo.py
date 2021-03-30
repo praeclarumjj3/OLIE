@@ -2,8 +2,8 @@ from torch._C import device
 import torch
 from torch import nn
 from adet.config import get_cfg
-from modules.solov2 import SOLOv2
-from modules.reconstructor import Reconstructor
+from modules.networks.solov2 import SOLOv2
+from modules.networks.reconstructor import Reconstructor
 import matplotlib.pyplot as plt
 import argparse
 import os

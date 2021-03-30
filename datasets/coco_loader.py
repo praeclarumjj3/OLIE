@@ -87,7 +87,7 @@ def collate_fn(data):
     # hole_images = list(hole_images)
     # masks = list(masks)
 
-    return comp_imgs, bg_imgs
+    return torch.stack(comp_imgs, dim=0), torch.stack(bg_imgs,0)
     
 def get_loader(device, root, json, batch_size, shuffle, num_workers):
     """Returns torch.utils.data.DataLoader for custom coco dataset."""
