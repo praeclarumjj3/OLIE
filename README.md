@@ -80,26 +80,34 @@ The repository is structured as follows:
 
 - Run the following command to run a demo and see visualization results:
 
-```
-sh scripts/demo.sh
+```bash
+$ sh scripts/demo.sh
 ```
 
 - Run the following command to train the **OLIE** model for `30 epochs`:
 
-```
-sh scripts/train.sh
+```bash
+$ sh scripts/train.sh
 ```
 
 - Run the following command to start distributed training of the **OLIE** model for `30 epochs`:
 
-```
-sh scripts/dist_train.sh
+```bash
+$ sh scripts/dist_train.sh
 ```
 
 - Run the following command to evaluate the **OLIE** model from checkpoints:
 
+```bash
+$ sh scripts/evaluate.sh
 ```
-sh scripts/evaluate.sh
+
+If you encounter an errors, install the [pretty-errors](https://pypi.org/project/pretty-errors/) package to see the beautified errors.
+
+```bash
+$ python -m pip install pretty_errors
+
+$ python -m pretty_errors
 ```
 
 ## 5. Experiments

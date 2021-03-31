@@ -7,8 +7,8 @@ import numpy as np
 import os
 import ntpath
 import time
-from . import util
-from . import html
+from modules.helpers import utils
+from modules.helpers import html
 import scipy.misc
 try:
     from StringIO import StringIO  # Python 2.7
@@ -18,23 +18,14 @@ except ImportError:
 class Visualizer():
     def __init__(self, opt):
         self.opt = opt
-        self.tf_log = opt.tf_log
         self.use_html = opt.isTrain and not opt.no_html
         self.win_size = opt.display_winsize
         self.name = opt.name
-        if self.tf_log:
-            import tensorflow as tf
-            self.tf = tf
-            tmp_name = opt.name if opt.isTrain else opt.phase + '_' + opt.name
-            self.log_dir = os.path.join(opt.checkpoints_dir, tmp_name, 'logs')
-            print(self.log_dir)
-            self.writer = tf.summary.FileWriter(self.log_dir)
-
         if self.use_html:
             self.web_dir = os.path.join(opt.checkpoints_dir, opt.name, 'web')
             self.img_dir = os.path.join(self.web_dir, 'images')
             print('create web directory %s...' % self.web_dir)
-            util.mkdirs([self.web_dir, self.img_dir])
+            utils.mkdirs([self.web_dir, self.img_dir])
         if opt.isTrain:
             self.log_name = os.path.join(opt.checkpoints_dir, opt.name, 'loss_log.txt')
             with open(self.log_name, "a") as log_file:
@@ -75,12 +66,12 @@ class Visualizer():
                 if isinstance(image_numpy, list):
                     for i in range(len(image_numpy)):
                         img_path = os.path.join(self.img_dir, 'epoch%.3d_iter%.3d_%s_%d.png' % (epoch, step, label, i))
-                        util.save_image(image_numpy[i], img_path)
+                        utils.save_image(image_numpy[i], img_path)
                 else:
                     img_path = os.path.join(self.img_dir, 'epoch%.3d_iter%.3d_%s.png' % (epoch, step, label))
                     if len(image_numpy.shape) >= 4:
                         image_numpy = image_numpy[0]                    
-                    util.save_image(image_numpy, img_path)
+                    utils.save_image(image_numpy, img_path)
 
             # update website
             webpage = html.HTML(self.web_dir, 'Experiment name = %s' % self.name, refresh=5)
@@ -136,11 +127,11 @@ class Visualizer():
             tile = self.opt.batchSize > 8
             if 'input_label' == key:
                 #t = util.tensor2label(t, self.opt.label_nc + 2, tile=tile)
-                t = util.tensor2label(t, 255, tile=tile)
+                t = utils.tensor2label(t, 255, tile=tile)
             elif 'real_label' == key:
                 t = np.transpose(t.cpu().float().numpy(), (1, 2, 0)).astype(np.uint8)
             else:
-                t = util.tensor2im(t, tile=tile)
+                t = utils.tensor2im(t, tile=tile)
             visuals[key] = t
         return visuals
 
@@ -160,7 +151,7 @@ class Visualizer():
         for label, image_numpy in visuals.items():
             image_name = os.path.join(label, '%s.png' % (name))
             save_path = os.path.join(image_dir, image_name)
-            util.save_image(image_numpy, save_path, create_dir=True)
+            utils.save_image(image_numpy, save_path, create_dir=True)
 
             ims.append(image_name)
             txts.append(label)

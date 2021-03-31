@@ -4,6 +4,7 @@ Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses
 """
 
 from .base_options import BaseOptions
+import argparse
 
 
 class TrainOptions(BaseOptions):
@@ -14,13 +15,12 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--save_latest_freq', type=int, default=5000, help='frequency of saving the latest results')
         parser.add_argument('--save_epoch_freq', type=int, default=10, help='frequency of saving checkpoints at the end of epochs')
         parser.add_argument('--debug', action='store_true', help='only do one epoch and displays at each iteration')
-
+        parser.add_argument('--no_html', action='store_true', help='do not save intermediate training results to [opt.checkpoints_dir]/[opt.name]/web/')
+        
         # for training
         parser.add_argument('--continue_train', action='store_true', help='continue training: load the latest model')
-        parser.add_argument('--coco', help='path of COCO dataset')
-        parser.add_argument('--batch_size', help='batch_size')
         parser.add_argument('--which_epoch', type=str, default='latest', help='which epoch to load? set to latest to use latest cached model')
-        parser.add_argument('--niter', type=int, default=100, help='# of iter at starting learning rate. This is NOT the total #epochs. Totla #epochs is niter + niter_decay')
+        parser.add_argument('--niter', type=int, default=100, help='# of iter at starting learning rate. This is NOT the total #epochs. Total #epochs is niter + niter_decay')
         parser.add_argument('--niter_decay', type=int, default=100, help='# of iter to linearly decay learning rate to zero')
         parser.add_argument('--optimizer', type=str, default='adam')
         parser.add_argument('--beta1', type=float, default=0.5, help='momentum term of adam')
@@ -37,8 +37,12 @@ class TrainOptions(BaseOptions):
         parser.add_argument('--no_vgg_loss', action='store_true', help='if specified, do *not* use VGG feature matching loss')
         parser.add_argument('--use_style_loss', action='store_true', help='if specified, do use style loss')
         parser.add_argument('--gan_mode', type=str, default='hinge', help='(ls|original|hinge)')
-        parser.add_argument('--netD', type=str, default='sesamemultiscale', help='(n_layers|multiscale|image)')
+        parser.add_argument('--netD', type=str, default='olie')
         parser.add_argument('--no_TTUR', action='store_true', help='Use TTUR training scheme')
         parser.add_argument('--lambda_kld', type=float, default=0.05)
+        
+        parser.add_argument("--config-file", default="configs/R50_3x.yaml", metavar="FILE", help="path to config file")
+        parser.add_argument("--opts", help="Modify config options using the command-line 'KEY VALUE' pairs", default=['MODEL.WEIGHTS', 'SOLOv2_R50_3x.pth'], nargs=argparse.REMAINDER)
+        
         self.isTrain = True
         return parser

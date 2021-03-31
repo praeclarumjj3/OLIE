@@ -13,17 +13,24 @@ class OlieTrainer():
     and the latest visuals to visualize the progress in training.
     """
 
-    def __init__(self, opt):
+    def __init__(self, opt, solo):
         self.opt = opt
         self.olie_model = OlieGAN(opt)
+        self.solo = solo
 
         if len(opt.gpu_ids) > 0:
             self.olie_model = DataParallelWithCallback(self.olie_model,
                                                           device_ids=opt.gpu_ids)
             self.olie_model.cuda()
             self.olie_model_on_one_gpu = self.olie_model.module
+            
+            self.solo = DataParallelWithCallback(self.solo,
+                                                          device_ids=opt.gpu_ids)
+            self.solo.cuda()
+            self.solo_on_one_gpu = self.solo.module
         else:
             self.olie_model_on_one_gpu = self.olie_model
+            self.solo_on_one_gpu = self.solo
 
         self.generated = None
 
@@ -37,6 +44,7 @@ class OlieTrainer():
 
     def run_generator_one_step(self, data):
         self.optimizer_G.zero_grad()
+        maps = self.solo(data)
         g_losses, generated, masked, semantics = self.olie_model(data, mode='generator')
         g_loss = sum(g_losses.values()).mean()
         g_loss.backward()
@@ -45,12 +53,6 @@ class OlieTrainer():
         self.generated = generated
         self.masked = masked
         self.semantics = semantics
-
-    def run_discriminator_one_step(self, data):
-        self.optimizer_D.zero_grad()
-        d_losses = self.olie_model(data, mode='discriminator')
-        d_loss = sum(d_losses.values()).mean()
-        d_loss.backward()
 
     def run_discriminator_one_step(self, data):
         self.optimizer_D.zero_grad()

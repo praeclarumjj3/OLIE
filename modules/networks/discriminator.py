@@ -11,10 +11,10 @@ from modules.networks.base_network import BaseNetwork
 from modules.networks.normalization import get_nonspade_norm_layer
 import modules.helpers.utils as util
 
-class SesameMultiscaleDiscriminator(BaseNetwork):
+class OlieDiscriminator(BaseNetwork):
     @staticmethod
     def modify_commandline_options(parser, is_train):
-        parser.add_argument('--netD_subarch', type=str, default='sesame_n_layer',
+        parser.add_argument('--netD_subarch', type=str, default='olie_n_layer',
                             help='architecture of each discriminator')
         parser.add_argument('--num_D', type=int, default=2,
                             help='number of discriminators to be used in multiscale')
@@ -22,7 +22,7 @@ class SesameMultiscaleDiscriminator(BaseNetwork):
 
         # define properties of each discriminator of the multiscale discriminator
         subnetD = util.find_class_in_module(opt.netD_subarch + 'discriminator',
-                                            'models.networks.discriminator')
+                                            'modules.networks.discriminator')
         subnetD.modify_commandline_options(parser, is_train)
 
         return parser
@@ -37,8 +37,8 @@ class SesameMultiscaleDiscriminator(BaseNetwork):
 
     def create_single_discriminator(self, opt, input_nc = None):
         subarch = opt.netD_subarch
-        if subarch == 'sesame_n_layer':
-            netD = SesameNLayerDiscriminator(opt, input_nc)
+        if subarch == 'olie_n_layer':
+            netD = OlieNLayerDiscriminator(opt, input_nc)
         else:
             raise ValueError('unrecognized discriminator subarchitecture %s' % subarch)
         return netD
@@ -63,8 +63,8 @@ class SesameMultiscaleDiscriminator(BaseNetwork):
         return result
 
 
-# Defines the SESAME discriminator with the specified arguments.
-class SesameNLayerDiscriminator(BaseNetwork):
+# Defines the OLIE discriminator with the specified arguments.
+class OlieNLayerDiscriminator(BaseNetwork):
     @staticmethod
     def modify_commandline_options(parser, is_train):
         parser.add_argument('--n_layers_D', type=int, default=4,

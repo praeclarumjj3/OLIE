@@ -6,7 +6,7 @@ import math
 from detectron2.modeling.backbone import build_backbone
 from detectron2.structures import ImageList
 from .solo_utils import point_nms, mask_nms, matrix_nms, visualize_instance_map, visualize_maps, visualize_single_map
-from modules.solov2_heads import SOLOv2InsHead, SOLOv2MaskHead
+from modules.solov2.solov2_heads import SOLOv2InsHead, SOLOv2MaskHead
 
 import warnings
 warnings.filterwarnings("ignore")

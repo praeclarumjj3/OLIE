@@ -14,8 +14,23 @@ import torch
 from modules.helpers.iter_counter import IterationCounter
 from modules.helpers.visualizer import Visualizer
 from trainers.olie_trainer import OlieTrainer
+from detectron2.checkpoint import DetectionCheckpointer
+from modules.solov2.solov2 import SOLOv2
+import warnings
+from etaprogress.progress import ProgressBar
+import argparse
+from adet.config import get_cfg
+warnings.filterwarnings("ignore")
 
-def main():
+def setup_cfg(args):
+    # load config from file and command-line arguments
+    cfg = get_cfg()
+    cfg.merge_from_file(args.config_file)
+    cfg.merge_from_list(args.opts)
+    cfg.freeze()
+    return cfg
+
+def main(solo):
     # parse options
     opt = TrainOptions().parse()
 
@@ -26,14 +41,14 @@ def main():
 
     # load the dataset
     dataloader = get_loader(device=device, \
-                                    root=opt.coco+'val2017', \
-                                        json=opt.coco+'annotations/instances_val2017.json', \
+                                    root=opt.coco+'train2017', \
+                                        json=opt.coco+'annotations/instances_train2017.json', \
                                             batch_size=opt.batch_size, \
                                                 shuffle=False, \
                                                     num_workers=0)
 
     # create trainer for our model
-    trainer = OlieTrainer(opt)
+    trainer = OlieTrainer(opt, solo)
 
     # create tool for counting iterations
     iter_counter = IterationCounter(opt, len(dataloader))
@@ -43,7 +58,12 @@ def main():
 
     for epoch in iter_counter.training_epochs():
         iter_counter.record_epoch_start(epoch)
+        total = len(dataloader)
+        bar = ProgressBar(total, max_width=80)
         for i, data_i in enumerate(dataloader, start=iter_counter.epoch_iter):
+            bar.numerator = i+1
+            print(bar, end='\r')
+
             iter_counter.record_one_iteration()
 
             # Training
@@ -93,4 +113,14 @@ def main():
     print('Training was successfully finished.')
 
 if __name__ == '__main__':
-    main()
+    args = TrainOptions().parse()
+
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+
+    cfg = setup_cfg(args)
+
+    solo = SOLOv2(cfg=cfg).to(device)
+    checkpointer = DetectionCheckpointer(solo)
+    checkpointer.load(cfg.MODEL.WEIGHTS)
+
+    main(solo=solo.eval())

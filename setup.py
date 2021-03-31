@@ -84,7 +84,9 @@ setup(
         "shapely",
         "etaprogress",
         "opencv-python",
-        "pycocotools"
+        "pycocotools",
+        "dominate",
+        "scikit-image"
     ],
     extras_require={"all": ["psutil"]},
     ext_modules=get_extensions(),
