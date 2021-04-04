@@ -8,6 +8,16 @@ from PIL import Image
 from modules.helpers import coco
 import importlib
 
+def tensor_to_list(maps):
+    
+    masks = []
+    maps = maps.squeeze(0)
+
+    for i in range(maps.shape[0]):
+        masks.append(maps[i])
+
+    return masks
+
 def masking(image, phase, index):
     if phase=="single":
         # print(torch.mean(image[i][index]))

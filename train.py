@@ -18,7 +18,6 @@ from detectron2.checkpoint import DetectionCheckpointer
 from modules.solov2.solov2 import SOLOv2
 import warnings
 from etaprogress.progress import ProgressBar
-import argparse
 from adet.config import get_cfg
 warnings.filterwarnings("ignore")
 
@@ -36,11 +35,8 @@ def main(solo):
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    # print options to help debugging
-    print(' '.join(sys.argv))
-
     # load the dataset
-    dataloader = get_loader(device=device, \
+    dataloader, _ = get_loader(device=device, \
                                     root=opt.coco+'train2017', \
                                         json=opt.coco+'annotations/instances_train2017.json', \
                                             batch_size=opt.batch_size, \

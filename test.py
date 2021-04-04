@@ -27,7 +27,7 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-    dataloader = get_loader(device=device, \
+    dataloader, _ = get_loader(device=device, \
                                     root=opt.coco+'val2017', \
                                         json=opt.coco+'annotations/instances_val2017.json', \
                                             batch_size=opt.batch_size, \

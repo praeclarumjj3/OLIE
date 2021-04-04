@@ -5,6 +5,7 @@ Licensed under the CC BY-NC-SA 4.0 license (https://creativecommons.org/licenses
 
 from modules.networks.sync_batchnorm import DataParallelWithCallback
 from modules.olie_gan import OlieGAN
+from modules.helpers.utils import tensor_to_list
 
 class OlieTrainer():
     """
@@ -43,8 +44,10 @@ class OlieTrainer():
         # print(self.olie_model_on_one_gpu.netD)
 
     def run_generator_one_step(self, data):
+        imgs, _ = data
+        solo_imgs = tensor_to_list(imgs)
         self.optimizer_G.zero_grad()
-        maps = self.solo(data)
+        maps = self.solo(solo_imgs)
         g_losses, generated, masked, semantics = self.olie_model(data, mode='generator')
         g_loss = sum(g_losses.values()).mean()
         g_loss.backward()
