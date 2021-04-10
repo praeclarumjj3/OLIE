@@ -16,7 +16,18 @@ This code is derived from the [AdelaiDet Project](https://github.com/aim-uofa/Ad
 
 This repo contains code for a [SOLOv2](https://arxiv.org/abs/2003.10152) based **O**bject **L**evel **I**mage **E**ditor.
 
-OLIE aims to reconstruct the original image with the objects removed (editing) by incorporating the mask features (produced by SOLOv2) as input to the reconstructor.
+OLIE was aimed to reconstruct the original image with the objects removed (editing) by incorporating the mask features (produced by SOLOv2) as input to the reconstructor.
+
+After experimentation for a few months, we scrapped this pipeline and moved on to a new one so the current code doesn't work well.
+
+### Results
+
+For the results corresponding to different settings, please refer to the corresponding commit.
+
+|     Desciption       |                                              Commit                                            |
+|----------------------|------------------------------------------------------------------------------------------------|
+| Removing objects     | [33d9451](https://github.com/praeclarumjj3/OLIE/tree/33d9451bc07fb1e873df5c9c056dbd5b74f2c9fd) |
+| Image Reconstruction | [2d24143](https://github.com/praeclarumjj3/OLIE/tree/2d24143cdedbcc41bc382d40a7b60966e2ca36d9) |
 
 <img src='OLIE.png' style="max-width:100%">
 
@@ -75,6 +86,7 @@ The repository is structured as follows:
 - `datasets` - Dataset related scripts.
 - `modules` - Contains python scripts for different modules.
 - `scripts` - Contains shell scripts for running code.
+- `baselines` - Results for image editing using baselines.
 
 ## 4. Reproduction
 
@@ -88,12 +100,6 @@ $ sh scripts/demo.sh
 
 ```bash
 $ sh scripts/train.sh
-```
-
-- Run the following command to start distributed training of the **OLIE** model for `30 epochs`:
-
-```bash
-$ sh scripts/dist_train.sh
 ```
 
 - Run the following command to evaluate the **OLIE** model from checkpoints:
@@ -114,25 +120,4 @@ $ python -m pretty_errors
 
 - The input image is of the `BGR` format.
 
-- The model was trained for `30 Epochs` with `lr=1e-3`. All experiments were conducted on the `coco-val dataset`. You can see the loss plots in the `losses` folder.
-
-|     Phase   | Loss |
-|-------------|------|
-| Training    | ---- |
-| Evaluation  | ---- |
-
-### Results
-
-<!-- - A detailed report using the current setting can be found at this [link](https://docs.google.com/document/d/1k07kinbEosb4JJfTVJ2SAkMdjA5q1ibu8GQiGAev-kw/edit?usp=sharing). -->
-
-- The reconstructions produced are very similar to the input images.
-    - **Left**: Original Input
-    - **Right**: Reconstruction
-
-<!-- <img src='visualizations/demo1.jpg' style="max-width:50%">
-
-<img src='visualizations/demo2.jpg' style="max-width:50%">
-
-<img src='visualizations/demo3.jpg' style="max-width:50%"> -->
-
-<!-- <img src='visualizations/demo4.jpg' style="max-width:50%"> -->
+- The model was trained for `30 Epochs` with `lr=1e-3`. All experiments were conducted on the `coco-val dataset`.
