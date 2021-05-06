@@ -121,3 +121,5 @@ $ python -m pretty_errors
 - The input image is of the `BGR` format.
 
 - The model was trained for `30 Epochs` with `lr=1e-3`. All experiments were conducted on the `coco-val dataset`.
+
+- **[[Experiments Catalog]](https://www.notion.so/OLIE-f488907d4e9644a6baabd941805665b6)**
